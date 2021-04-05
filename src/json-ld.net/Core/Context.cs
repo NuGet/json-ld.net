@@ -2,8 +2,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using JsonLD.Core;
+using JsonLD.OmniJson;
 using JsonLD.Util;
-using Newtonsoft.Json.Linq;
 
 namespace JsonLD.Core
 {
@@ -13,13 +13,13 @@ namespace JsonLD.Core
 	/// </summary>
 	/// <author>tristan</author>
 	//[System.Serializable]
-	public class Context : JObject
+	public class Context : OmniJsonObject
     {
         private JsonLdOptions options;
 
-		JObject termDefinitions;
+		OmniJsonObject termDefinitions;
 
-		internal JObject inverse = null;
+		internal OmniJsonObject inverse = null;
 
 		public Context() : this(new JsonLdOptions())
 		{
@@ -30,19 +30,19 @@ namespace JsonLD.Core
 			Init(options);
 		}
 
-		public Context(JObject map, JsonLdOptions options) : base(map
+		public Context(OmniJsonObject map, JsonLdOptions options) : base((IDictionary<string,object>)map.Unwrap()
 			)
 		{
 			Init(options);
 		}
 
-		public Context(JObject map) : base(map)
+		public Context(OmniJsonObject map) : base((IDictionary<string, object>)map.Unwrap())
 		{
 			Init(new JsonLdOptions());
 		}
 
-		public Context(JToken context, JsonLdOptions opts) : base(context is JObject ? 
-			(JObject)context : null)
+		public Context(OmniJsonToken context, JsonLdOptions opts) : base(context is OmniJsonObject ?
+			(IDictionary<string, object>)(context as OmniJsonObject).Unwrap() : null)
 		{
             Init(opts);
 		}
@@ -55,7 +55,7 @@ namespace JsonLD.Core
 			{
 				this["@base"] = options.GetBase();
 			}
-            this.termDefinitions = new JObject();
+            this.termDefinitions = new OmniJsonObject();
 		}
 
 		/// <summary>
@@ -65,9 +65,9 @@ namespace JsonLD.Core
 		/// <param name="activeProperty"></param>
 		/// <param name="element"></param>
 		/// <returns></returns>
-		internal virtual JToken CompactValue(string activeProperty, JObject value)
+		internal virtual OmniJsonToken CompactValue(string activeProperty, OmniJsonObject value)
 		{
-            var dict = (IDictionary<string, JToken>)value;
+            var dict = (IDictionary<string, OmniJsonToken>)value;
 			// 1)
 			int numberMembers = value.Count;
 			// 2)
@@ -99,7 +99,7 @@ namespace JsonLD.Core
 				// 4.3)
 				return value;
 			}
-			JToken valueValue = value["@value"];
+			OmniJsonToken valueValue = value["@value"];
 			// 5)
             if (dict.ContainsKey("@type") && value["@type"].SafeCompare(typeMapping))
 			{
@@ -109,13 +109,13 @@ namespace JsonLD.Core
             if (dict.ContainsKey("@language"))
 			{
 				// TODO: SPEC: doesn't specify to check default language as well
-                if (value["@language"].SafeCompare(languageMapping) || value["@language"].SafeCompare(this["@language"]))
+                if (value["@language"].SafeCompare(languageMapping) || value["@language"].SafeCompare((string)this["@language"]))
 				{
 					return valueValue;
 				}
 			}
 			// 7)
-			if (numberMembers == 1 && (!(valueValue.Type == JTokenType.String) || !((IDictionary<string,JToken>)this).ContainsKey("@language"
+			if (numberMembers == 1 && (!(valueValue.Type == OmniJsonTokenType.String) || !((IDictionary<string,OmniJsonToken>)this).ContainsKey("@language"
 				) || (GetTermDefinition(activeProperty).ContainsKey("@language") && languageMapping
 				 == null)))
 			{
@@ -134,7 +134,7 @@ namespace JsonLD.Core
 		/// <returns></returns>
 		/// <exception cref="JsonLdError">JsonLdError</exception>
 		/// <exception cref="JsonLD.Core.JsonLdError"></exception>
-		internal virtual JsonLD.Core.Context Parse(JToken localContext, List<string> remoteContexts)
+		internal virtual JsonLD.Core.Context Parse(OmniJsonToken localContext, List<string> remoteContexts)
 		{
 			if (remoteContexts == null)
 			{
@@ -144,18 +144,18 @@ namespace JsonLD.Core
 			JsonLD.Core.Context result = ((JsonLD.Core.Context)this.Clone());
 			// TODO: clone?
 			// 2)
-			if (!(localContext is JArray))
+			if (!(localContext is OmniJsonArray))
 			{
-				JToken temp = localContext;
-				localContext = new JArray();
-				((JArray)localContext).Add(temp);
+				OmniJsonToken temp = localContext;
+				localContext = new OmniJsonArray();
+				((OmniJsonArray)localContext).Add(temp);
 			}
 			// 3)
-			foreach (JToken context in (JArray)localContext)
+			foreach (OmniJsonToken context in (OmniJsonArray)localContext)
 			{
                 var eachContext = context;
 				// 3.1)
-				if (eachContext.Type == JTokenType.Null)
+				if (eachContext.Type == OmniJsonTokenType.Null)
 				{
 					result = new JsonLD.Core.Context(this.options);
 					continue;
@@ -169,7 +169,7 @@ namespace JsonLD.Core
 					else
 					{
 						// 3.2)
-						if (eachContext.Type == JTokenType.String)
+						if (eachContext.Type == OmniJsonTokenType.String)
 						{
 							string uri = (string)result["@base"];
 							uri = URL.Resolve(uri, (string)eachContext);
@@ -194,15 +194,15 @@ namespace JsonLD.Core
                                 else
                                     throw;
                             }
-							JToken remoteContext = rd.document;
-                            if (!(remoteContext is JObject) || !((JObject)remoteContext
-								).ContainsKey("@context"))
+							OmniJsonToken remoteContext = rd.document;
+                            if (!(remoteContext is OmniJsonObject) || !JavaCompat.ContainsKey(((OmniJsonObject)remoteContext
+                                ), "@context"))
 							{
 								// If the dereferenced document has no top-level JSON object
 								// with an @context member
 								throw new JsonLdError(JsonLdError.Error.InvalidRemoteContext, eachContext);
 							}
-                            eachContext = ((JObject)remoteContext)["@context"];
+                            eachContext = ((OmniJsonObject)remoteContext)["@context"];
 							// 3.2.4
 							result = result.Parse(eachContext, remoteContexts);
 							// 3.2.5
@@ -210,7 +210,7 @@ namespace JsonLD.Core
 						}
 						else
 						{
-                            if (!(eachContext is JObject))
+                            if (!(eachContext is OmniJsonObject))
 							{
 								// 3.3
 								throw new JsonLdError(JsonLdError.Error.InvalidLocalContext, eachContext);
@@ -219,17 +219,17 @@ namespace JsonLD.Core
 					}
 				}
 				// 3.4
-                if (remoteContexts.IsEmpty() && ((JObject)eachContext).ContainsKey
-					("@base"))
+                if (remoteContexts.IsEmpty() && JavaCompat.ContainsKey
+                    (((OmniJsonObject)eachContext), "@base"))
 				{
-                    JToken value = eachContext["@base"];
+                    OmniJsonToken value = eachContext["@base"];
 					if (value.IsNull())
 					{
-						JsonLD.Collections.Remove(result, "@base");
+                        JsonLD.Collections.Remove(result, "@base");
 					}
 					else
 					{
-						if (value.Type == JTokenType.String)
+						if (value.Type == OmniJsonTokenType.String)
 						{
 							if (JsonLdUtils.IsAbsoluteIri((string)value))
 							{
@@ -252,16 +252,16 @@ namespace JsonLD.Core
 					}
 				}
 				// 3.5
-                if (((JObject)eachContext).ContainsKey("@vocab"))
+                if (JavaCompat.ContainsKey(((OmniJsonObject)eachContext), "@vocab"))
 				{
-					JToken value = eachContext["@vocab"];
+                    OmniJsonToken value = eachContext["@vocab"];
 					if (value.IsNull())
 					{
-						JsonLD.Collections.Remove(result, "@vocab");
+                        JsonLD.Collections.Remove(result, "@vocab");
 					}
 					else
 					{
-						if (value.Type == JTokenType.String)
+						if (value.Type == OmniJsonTokenType.String)
 						{
 							if (JsonLdUtils.IsAbsoluteIri((string)value))
 							{
@@ -281,16 +281,16 @@ namespace JsonLD.Core
 					}
 				}
 				// 3.6
-				if (((JObject)eachContext).ContainsKey("@language"))
+				if (JavaCompat.ContainsKey(((OmniJsonObject)eachContext), "@language"))
 				{
-					JToken value = ((JObject)eachContext)["@language"];
+                    OmniJsonToken value = ((OmniJsonObject)eachContext)["@language"];
 					if (value.IsNull())
 					{
-						JsonLD.Collections.Remove(result, "@language");
+                        JsonLD.Collections.Remove(result, "@language");
 					}
 					else
 					{
-						if (value.Type == JTokenType.String)
+						if (value.Type == OmniJsonTokenType.String)
 						{
 							result["@language"] = ((string)value).ToLower();
 						}
@@ -308,14 +308,14 @@ namespace JsonLD.Core
 					{
 						continue;
 					}
-                    result.CreateTermDefinition((JObject)eachContext, key, defined);
+                    result.CreateTermDefinition((OmniJsonObject)eachContext, key, defined);
 				}
 			}
 			return result;
 		}
 
 		/// <exception cref="JsonLD.Core.JsonLdError"></exception>
-		internal virtual JsonLD.Core.Context Parse(JToken localContext)
+		internal virtual JsonLD.Core.Context Parse(OmniJsonToken localContext)
 		{
 			return this.Parse(localContext, new List<string>());
 		}
@@ -330,7 +330,7 @@ namespace JsonLD.Core
 		/// <param name="defined"></param>
 		/// <exception cref="JsonLdError">JsonLdError</exception>
 		/// <exception cref="JsonLD.Core.JsonLdError"></exception>
-		private void CreateTermDefinition(JObject context, string term
+		private void CreateTermDefinition(OmniJsonObject context, string term
 			, IDictionary<string, bool> defined)
 		{
 			if (defined.ContainsKey(term))
@@ -347,32 +347,32 @@ namespace JsonLD.Core
 				throw new JsonLdError(JsonLdError.Error.KeywordRedefinition, term);
 			}
 			JsonLD.Collections.Remove(this.termDefinitions, term);
-			JToken value = context[term];
-			if (value.IsNull() || (value is JObject && ((IDictionary<string, JToken>)value
-				).ContainsKey("@id") && ((IDictionary<string, JToken>)value)["@id"].IsNull()))
+			OmniJsonToken value = context[term];
+			if (value.IsNull() || (value is OmniJsonObject && ((IDictionary<string, OmniJsonToken>)value
+				).ContainsKey("@id") && ((IDictionary<string, OmniJsonToken>)value)["@id"].IsNull()))
 			{
 				this.termDefinitions[term] = null;
 				defined[term] = true;
 				return;
 			}
-			if (value.Type == JTokenType.String)
+			if (value.Type == OmniJsonTokenType.String)
 			{
-                JObject tmp = new JObject();
+                OmniJsonObject tmp = new OmniJsonObject();
 				tmp["@id"] = value;
 				value = tmp;
 			}
-			if (!(value is JObject))
+			if (!(value is OmniJsonObject))
 			{
 				throw new JsonLdError(JsonLdError.Error.InvalidTermDefinition, value);
 			}
 			// casting the value so it doesn't have to be done below everytime
-			JObject val = (JObject)value;
+			OmniJsonObject val = (OmniJsonObject)value;
 			// 9) create a new term definition
-			JObject definition = new JObject();
+			OmniJsonObject definition = new OmniJsonObject();
 			// 10)
 			if (val.ContainsKey("@type"))
 			{
-				if (!(val["@type"].Type == JTokenType.String))
+				if (!(val["@type"].Type == OmniJsonTokenType.String))
 				{
 					throw new JsonLdError(JsonLdError.Error.InvalidTypeMapping, val["@type"]);
 				}
@@ -408,7 +408,7 @@ namespace JsonLD.Core
 				{
 					throw new JsonLdError(JsonLdError.Error.InvalidReverseProperty, val);
 				}
-				if (!(val["@reverse"].Type == JTokenType.String))
+				if (!(val["@reverse"].Type == OmniJsonTokenType.String))
 				{
 					throw new JsonLdError(JsonLdError.Error.InvalidIriMapping, "Expected String for @reverse value. got "
 						 + (val["@reverse"].IsNull() ? "null" : val["@reverse"].GetType().ToString()));
@@ -444,7 +444,7 @@ namespace JsonLD.Core
 			// 13)
 			if (!val["@id"].IsNull() && !val["@id"].SafeCompare(term))
 			{
-				if (!(val["@id"].Type == JTokenType.String))
+				if (!(val["@id"].Type == OmniJsonTokenType.String))
 				{
 					throw new JsonLdError(JsonLdError.Error.InvalidIriMapping, "expected value of @id to be a string"
 						);
@@ -479,7 +479,7 @@ namespace JsonLD.Core
 					}
 					if (termDefinitions.ContainsKey(prefix))
 					{
-						definition["@id"] = (string)(((IDictionary<string, JToken>)termDefinitions[prefix])["@id"]) + suffix;
+						definition["@id"] = (string)(((IDictionary<string, OmniJsonToken>)termDefinitions[prefix])["@id"]) + suffix;
 					}
 					else
 					{
@@ -515,7 +515,7 @@ namespace JsonLD.Core
 			// 17)
 			if (val.ContainsKey("@language") && !val.ContainsKey("@type"))
 			{
-				if (val["@language"].IsNull() || val["@language"].Type == JTokenType.String)
+				if (val["@language"].IsNull() || val["@language"].Type == OmniJsonTokenType.String)
 				{
 					string language = (string)val["@language"];
 					definition["@language"] = language != null ? language.ToLower() : null;
@@ -543,7 +543,7 @@ namespace JsonLD.Core
 		/// <returns></returns>
 		/// <exception cref="JsonLdError">JsonLdError</exception>
 		/// <exception cref="JsonLD.Core.JsonLdError"></exception>
-		internal virtual string ExpandIri(string value, bool relative, bool vocab, JObject context, IDictionary<string, bool> defined)
+		internal virtual string ExpandIri(string value, bool relative, bool vocab, OmniJsonObject context, IDictionary<string, bool> defined)
 		{
 			// 1)
 			if (value == null || JsonLdUtils.IsKeyword(value))
@@ -558,10 +558,10 @@ namespace JsonLD.Core
 			// 3)
 			if (vocab && this.termDefinitions.ContainsKey(value))
 			{
-                JToken td = this.termDefinitions[value];
-				if (td.Type != JTokenType.Null)
+                OmniJsonToken td = this.termDefinitions[value];
+				if (td.Type != OmniJsonTokenType.Null)
 				{
-					return (string)((JObject)td)["@id"];
+					return (string)((OmniJsonObject)td)["@id"];
 				}
 				else
 				{
@@ -589,7 +589,7 @@ namespace JsonLD.Core
 				// 4.4)
 				if (this.termDefinitions.ContainsKey(prefix))
 				{
-                    return (string)((JObject)this.termDefinitions[prefix])["@id"] 
+                    return (string)((OmniJsonObject)this.termDefinitions[prefix])["@id"] 
 						+ suffix;
 				}
 				// 4.5)
@@ -640,7 +640,7 @@ namespace JsonLD.Core
 		/// <param name="reverse">true if a reverse property is being compacted, false if not.
 		/// 	</param>
 		/// <returns>the compacted term, prefix, keyword alias, or the original IRI.</returns>
-		internal virtual string CompactIri(string iri, JToken value, bool relativeToVocab
+		internal virtual string CompactIri(string iri, OmniJsonToken value, bool relativeToVocab
 			, bool reverse)
 		{
 			// 1)
@@ -658,12 +658,12 @@ namespace JsonLD.Core
 					defaultLanguage = "@none";
 				}
 				// 2.2)
-				JArray containers = new JArray();
+				OmniJsonArray containers = new OmniJsonArray();
 				// 2.3)
 				string typeLanguage = "@language";
 				string typeLanguageValue = "@null";
 				// 2.4)
-				if (value is JObject && ((IDictionary<string, JToken>)value).ContainsKey("@index"
+				if (value is OmniJsonObject && ((IDictionary<string, OmniJsonToken>)value).ContainsKey("@index"
 					))
 				{
 					containers.Add("@index");
@@ -678,20 +678,20 @@ namespace JsonLD.Core
 				else
 				{
 					// 2.6)
-                    if (value is JObject && ((IDictionary<string, JToken>)value).ContainsKey("@list"))
+                    if (value is OmniJsonObject && ((IDictionary<string, OmniJsonToken>)value).ContainsKey("@list"))
 					{
 						// 2.6.1)
-						if (!((IDictionary<string, JToken>)value).ContainsKey("@index"))
+						if (!((IDictionary<string, OmniJsonToken>)value).ContainsKey("@index"))
 						{
 							containers.Add("@list");
 						}
 						// 2.6.2)
-                        JArray list = (JArray)((JObject)value)["@list"];
+                        OmniJsonArray list = (OmniJsonArray)((OmniJsonObject)value)["@list"];
 						// 2.6.3)
 						string commonLanguage = (list.Count == 0) ? defaultLanguage : null;
 						string commonType = null;
 						// 2.6.4)
-						foreach (JToken item in list)
+						foreach (OmniJsonToken item in list)
 						{
 							// 2.6.4.1)
 							string itemLanguage = "@none";
@@ -700,16 +700,16 @@ namespace JsonLD.Core
 							if (JsonLdUtils.IsValue(item))
 							{
 								// 2.6.4.2.1)
-								if (((IDictionary<string, JToken>)item).ContainsKey("@language"))
+								if (((IDictionary<string, OmniJsonToken>)item).ContainsKey("@language"))
 								{
-									itemLanguage = (string)((JObject)item)["@language"];
+									itemLanguage = (string)((OmniJsonObject)item)["@language"];
 								}
 								else
 								{
 									// 2.6.4.2.2)
-									if (((IDictionary<string, JToken>)item).ContainsKey("@type"))
+									if (((IDictionary<string, OmniJsonToken>)item).ContainsKey("@type"))
 									{
-										itemType = (string)((JObject)item)["@type"];
+										itemType = (string)((OmniJsonObject)item)["@type"];
 									}
 									else
 									{
@@ -775,23 +775,23 @@ namespace JsonLD.Core
 					{
 						// 2.7)
 						// 2.7.1)
-                        if (value is JObject && ((IDictionary<string, JToken>)value).ContainsKey("@value"
+                        if (value is OmniJsonObject && ((IDictionary<string, OmniJsonToken>)value).ContainsKey("@value"
 							))
 						{
 							// 2.7.1.1)
-                            if (((IDictionary<string, JToken>)value).ContainsKey("@language") && !((IDictionary
-                                <string, JToken>)value).ContainsKey("@index"))
+                            if (((IDictionary<string, OmniJsonToken>)value).ContainsKey("@language") && !((IDictionary
+                                <string, OmniJsonToken>)value).ContainsKey("@index"))
 							{
 								containers.Add("@language");
-                                typeLanguageValue = (string)((IDictionary<string, JToken>)value)["@language"];
+                                typeLanguageValue = (string)((IDictionary<string, OmniJsonToken>)value)["@language"];
 							}
 							else
 							{
 								// 2.7.1.2)
-                                if (((IDictionary<string, JToken>)value).ContainsKey("@type"))
+                                if (((IDictionary<string, OmniJsonToken>)value).ContainsKey("@type"))
 								{
 									typeLanguage = "@type";
-                                    typeLanguageValue = (string)((IDictionary<string, JToken>)value)["@type"];
+                                    typeLanguageValue = (string)((IDictionary<string, OmniJsonToken>)value)["@type"];
 								}
 							}
 						}
@@ -813,7 +813,7 @@ namespace JsonLD.Core
 					typeLanguageValue = "@null";
 				}
 				// 2.10)
-				JArray preferredValues = new JArray();
+				OmniJsonArray preferredValues = new OmniJsonArray();
 				// 2.11)
 				if ("@reverse".Equals(typeLanguageValue))
 				{
@@ -821,15 +821,15 @@ namespace JsonLD.Core
 				}
 				// 2.12)
 				if (("@reverse".Equals(typeLanguageValue) || "@id".Equals(typeLanguageValue)) && 
-					(value is JObject) && ((JObject)value).ContainsKey("@id"
-					))
+					(value is OmniJsonObject) && JavaCompat.ContainsKey(((OmniJsonObject)value), "@id"
+                    ))
 				{
 					// 2.12.1)
-                    string result = this.CompactIri((string)((IDictionary<string, JToken>)value)["@id"
+                    string result = this.CompactIri((string)((IDictionary<string, OmniJsonToken>)value)["@id"
 						], null, true, true);
-                    if (termDefinitions.ContainsKey(result) && ((IDictionary<string, JToken>)termDefinitions
-                        [result]).ContainsKey("@id") && ((IDictionary<string, JToken>)value)["@id"].SafeCompare
-                        (((IDictionary<string, JToken>)termDefinitions[result])["@id"]))
+                    if (JavaCompat.ContainsKey(termDefinitions, result) && ((IDictionary<string, OmniJsonToken>)termDefinitions
+                        [result]).ContainsKey("@id") && ((IDictionary<string, OmniJsonToken>)value)["@id"].SafeCompare
+                        ((string)((IDictionary<string, OmniJsonToken>)termDefinitions[result])["@id"]))
 					{
 						preferredValues.Add("@vocab");
 						preferredValues.Add("@id");
@@ -877,19 +877,19 @@ namespace JsonLD.Core
 			// 5)
 			foreach (string term_1 in termDefinitions.GetKeys())
 			{
-				JToken termDefinitionToken = termDefinitions[term_1];
+				OmniJsonToken termDefinitionToken = termDefinitions[term_1];
 				// 5.1)
 				if (term_1.Contains(":"))
 				{
 					continue;
 				}
 				// 5.2)
-                if (termDefinitionToken.Type == JTokenType.Null)
+                if (termDefinitionToken.Type == OmniJsonTokenType.Null)
                 {
                     continue;
                 }
-                JObject termDefinition = (JObject)termDefinitionToken;
-                if (termDefinition["@id"].SafeCompare(iri) || !iri.StartsWith
+                OmniJsonObject termDefinition = (OmniJsonObject)termDefinitionToken;
+                if (termDefinition["@id"].SafeCompare((string)iri) || !iri.StartsWith
 					((string)termDefinition["@id"]))
 				{
 					continue;
@@ -900,7 +900,7 @@ namespace JsonLD.Core
 				// 5.4)
 				if ((compactIRI == null || JsonLdUtils.CompareShortestLeast(candidate, compactIRI
 					) < 0) && (!termDefinitions.ContainsKey(candidate) || (((IDictionary<
-                    string, JToken>)termDefinitions[candidate])["@id"].SafeCompare(iri)) && value.IsNull()))
+                    string, OmniJsonToken>)termDefinitions[candidate])["@id"].SafeCompare((string)iri)) && value.IsNull()))
 				{
 					compactIRI = candidate;
 				}
@@ -932,7 +932,7 @@ namespace JsonLD.Core
 		public object Clone()
 		{
 			JsonLD.Core.Context rval = new Context(base.DeepClone(),options);
-			rval.termDefinitions = (JObject)termDefinitions.DeepClone();
+			rval.termDefinitions = (OmniJsonObject)termDefinitions.DeepClone();
 			return rval;
 		}
 
@@ -949,7 +949,7 @@ namespace JsonLD.Core
 		/// already generated for the given active context.
 		/// </remarks>
 		/// <returns>the inverse context.</returns>
-		internal virtual JObject GetInverse()
+		internal virtual OmniJsonObject GetInverse()
 		{
 			// lazily create inverse
 			if (inverse != null)
@@ -957,7 +957,7 @@ namespace JsonLD.Core
 				return inverse;
 			}
 			// 1)
-			inverse = new JObject();
+			inverse = new OmniJsonObject();
 			// 2)
 			string defaultLanguage = (string)this["@language"];
 			if (defaultLanguage == null)
@@ -966,18 +966,18 @@ namespace JsonLD.Core
 			}
 			// create term selections for each mapping in the context, ordererd by
 			// shortest and then lexicographically least
-			JArray terms = new JArray(termDefinitions.GetKeys());
-			((JArray)terms).SortInPlace(new _IComparer_794());
+			OmniJsonArray terms = new OmniJsonArray(termDefinitions.GetKeys());
+			((OmniJsonArray)terms).SortInPlace(new _IComparer_794());
 			foreach (string term in terms)
 			{
-                JToken definitionToken = termDefinitions[term];
+                OmniJsonToken definitionToken = termDefinitions[term];
                 // 3.1)
-                if (definitionToken.Type == JTokenType.Null)
+                if (definitionToken.Type == OmniJsonTokenType.Null)
                 {
                     continue;
                 }
 
-				JObject definition = (JObject)termDefinitions[term];
+				OmniJsonObject definition = (OmniJsonObject)termDefinitions[term];
 				// 3.2)
 				string container = (string)definition["@container"];
 				if (container == null)
@@ -987,25 +987,25 @@ namespace JsonLD.Core
 				// 3.3)
 				string iri = (string)definition["@id"];
 				// 3.4 + 3.5)
-				JObject containerMap = (JObject)inverse[iri];
+				OmniJsonObject containerMap = (OmniJsonObject)inverse[iri];
 				if (containerMap == null)
 				{
-					containerMap = new JObject();
+					containerMap = new OmniJsonObject();
 					inverse[iri] = containerMap;
 				}
 				// 3.6 + 3.7)
-				JObject typeLanguageMap = (JObject)containerMap[container];
+				OmniJsonObject typeLanguageMap = (OmniJsonObject)containerMap[container];
 				if (typeLanguageMap == null)
 				{
-					typeLanguageMap = new JObject();
-					typeLanguageMap["@language"] = new JObject();
-					typeLanguageMap["@type"] = new JObject();
+					typeLanguageMap = new OmniJsonObject();
+					typeLanguageMap["@language"] = new OmniJsonObject();
+					typeLanguageMap["@type"] = new OmniJsonObject();
 					containerMap[container] = typeLanguageMap;
 				}
 				// 3.8)
 				if (definition["@reverse"].SafeCompare(true))
 				{
-                    JObject typeMap = (JObject)typeLanguageMap
+                    OmniJsonObject typeMap = (OmniJsonObject)typeLanguageMap
 						["@type"];
 					if (!typeMap.ContainsKey("@reverse"))
 					{
@@ -1017,7 +1017,7 @@ namespace JsonLD.Core
 					// 3.9)
 					if (definition.ContainsKey("@type"))
 					{
-                        JObject typeMap = (JObject)typeLanguageMap["@type"];
+                        OmniJsonObject typeMap = (OmniJsonObject)typeLanguageMap["@type"];
 						if (!typeMap.ContainsKey((string)definition["@type"]))
 						{
 							typeMap[(string)definition["@type"]] = term;
@@ -1028,7 +1028,7 @@ namespace JsonLD.Core
 						// 3.10)
 						if (definition.ContainsKey("@language"))
 						{
-                            JObject languageMap = (JObject)typeLanguageMap
+                            OmniJsonObject languageMap = (OmniJsonObject)typeLanguageMap
 								["@language"];
 							string language = (string)definition["@language"];
 							if (language == null)
@@ -1044,7 +1044,7 @@ namespace JsonLD.Core
 						{
 							// 3.11)
 							// 3.11.1)
-                            JObject languageMap = (JObject)typeLanguageMap
+                            OmniJsonObject languageMap = (OmniJsonObject)typeLanguageMap
 								["@language"];
 							// 3.11.2)
 							if (!languageMap.ContainsKey("@language"))
@@ -1057,7 +1057,7 @@ namespace JsonLD.Core
 								languageMap["@none"] = term;
 							}
 							// 3.11.4)
-                            JObject typeMap = (JObject)typeLanguageMap
+                            OmniJsonObject typeMap = (OmniJsonObject)typeLanguageMap
 								["@type"];
 							// 3.11.5)
 							if (!typeMap.ContainsKey("@none"))
@@ -1072,13 +1072,13 @@ namespace JsonLD.Core
 			return inverse;
 		}
 
-		private sealed class _IComparer_794 : IComparer<JToken>
+		private sealed class _IComparer_794 : IComparer<OmniJsonToken>
 		{
 			public _IComparer_794()
 			{
 			}
 
-			public int Compare(JToken a, JToken b)
+			public int Compare(OmniJsonToken a, OmniJsonToken b)
 			{
 				return JsonLdUtils.CompareShortestLeast((string)a, (string)b);
 			}
@@ -1101,12 +1101,12 @@ namespace JsonLD.Core
 		/// language mapping would be best used to express the value.
 		/// </remarks>
 		/// <returns>the selected term.</returns>
-		private string SelectTerm(string iri, JArray containers, string typeLanguage
-			, JArray preferredValues)
+		private string SelectTerm(string iri, OmniJsonArray containers, string typeLanguage
+			, OmniJsonArray preferredValues)
 		{
-			JObject inv = GetInverse();
+			OmniJsonObject inv = GetInverse();
 			// 1)
-			JObject containerMap = (JObject)inv[iri];
+			OmniJsonObject containerMap = (OmniJsonObject)inv[iri];
 			// 2)
 			foreach (string container in containers)
 			{
@@ -1116,10 +1116,10 @@ namespace JsonLD.Core
 					continue;
 				}
 				// 2.2)
-				JObject typeLanguageMap = (JObject)containerMap
+				OmniJsonObject typeLanguageMap = (OmniJsonObject)containerMap
 					[container];
 				// 2.3)
-				JObject valueMap = (JObject)typeLanguageMap
+				OmniJsonObject valueMap = (OmniJsonObject)typeLanguageMap
 					[typeLanguage];
 				// 2.4 )
 				foreach (string item in preferredValues)
@@ -1157,7 +1157,7 @@ namespace JsonLD.Core
 			{
 				return property;
 			}
-            JObject td = (JObject)termDefinitions[property
+            OmniJsonObject td = (OmniJsonObject)termDefinitions[property
 				];
 			if (td == null)
 			{
@@ -1172,12 +1172,12 @@ namespace JsonLD.Core
             {
                 return false;
             }
-            JObject td = (JObject)termDefinitions[property];
+            OmniJsonObject td = (OmniJsonObject)termDefinitions[property];
 			if (td == null)
 			{
 				return false;
 			}
-			JToken reverse = td["@reverse"];
+			OmniJsonToken reverse = td["@reverse"];
 			return !reverse.IsNull() && (bool)reverse;
 		}
 
@@ -1187,12 +1187,12 @@ namespace JsonLD.Core
             {
                 return null;
             }
-			JToken td = termDefinitions[property];
+			OmniJsonToken td = termDefinitions[property];
 			if (td.IsNull())
 			{
 				return null;
 			}
-			return (string)((JObject)td)["@type"];
+			return (string)((OmniJsonObject)td)["@type"];
 		}
 
 		private string GetLanguageMapping(string property)
@@ -1201,7 +1201,7 @@ namespace JsonLD.Core
             {
                 return null;
             }
-			JObject td = (JObject)termDefinitions[property];
+			OmniJsonObject td = (OmniJsonObject)termDefinitions[property];
 			if (td == null)
 			{
 				return null;
@@ -1209,16 +1209,16 @@ namespace JsonLD.Core
 			return (string)td["@language"];
 		}
 
-		internal virtual JObject GetTermDefinition(string key)
+		internal virtual OmniJsonObject GetTermDefinition(string key)
 		{
-			return (JObject)termDefinitions[key];
+			return (OmniJsonObject)termDefinitions[key];
 		}
 
 		/// <exception cref="JsonLD.Core.JsonLdError"></exception>
-		internal virtual JToken ExpandValue(string activeProperty, JToken value)
+		internal virtual OmniJsonToken ExpandValue(string activeProperty, OmniJsonToken value)
 		{
-			JObject rval = new JObject();
-			JObject td = GetTermDefinition(activeProperty);
+			OmniJsonObject rval = new OmniJsonObject();
+			OmniJsonObject td = GetTermDefinition(activeProperty);
 			// 1)
 			if (td != null && td["@type"].SafeCompare("@id"))
 			{
@@ -1244,7 +1244,7 @@ namespace JsonLD.Core
 			else
 			{
 				// 5)
-				if (value.Type == JTokenType.String)
+				if (value.Type == OmniJsonTokenType.String)
 				{
 					// 5.1)
 					if (td != null && td.ContainsKey("@language"))
@@ -1269,15 +1269,15 @@ namespace JsonLD.Core
 		}
 
 		/// <exception cref="JsonLD.Core.JsonLdError"></exception>
-        internal virtual JObject GetContextValue(string activeProperty, string @string)
+        internal virtual OmniJsonObject GetContextValue(string activeProperty, string @string)
 		{
 			throw new JsonLdError(JsonLdError.Error.NotImplemented, "getContextValue is only used by old code so far and thus isn't implemented"
 				);
 		}
 
-		public virtual JObject Serialize()
+		public virtual OmniJsonObject Serialize()
 		{
-			JObject ctx = new JObject();
+			OmniJsonObject ctx = new OmniJsonObject();
 			if (!this["@base"].IsNull() && !this["@base"].SafeCompare(options.GetBase()))
 			{
 				ctx["@base"] = this["@base"];
@@ -1292,16 +1292,16 @@ namespace JsonLD.Core
 			}
 			foreach (string term in termDefinitions.GetKeys())
 			{
-				JObject definition = (JObject)termDefinitions[term];
+				OmniJsonObject definition = (OmniJsonObject)termDefinitions[term];
 				if (definition["@language"].IsNull() && definition["@container"].IsNull() && definition
-					["@type"].IsNull() && (definition["@reverse"].IsNull() || (definition["@reverse"].Type == JTokenType.Boolean && (bool)definition["@reverse"] == false)))
+					["@type"].IsNull() && (definition["@reverse"].IsNull() || (definition["@reverse"].Type == OmniJsonTokenType.Boolean && (bool)definition["@reverse"] == false)))
 				{
 					string cid = this.CompactIri((string)definition["@id"]);
 					ctx[term] = term.Equals(cid) ? (string)definition["@id"] : cid;
 				}
 				else
 				{
-					JObject defn = new JObject();
+					OmniJsonObject defn = new OmniJsonObject();
 					string cid = this.CompactIri((string)definition["@id"]);
 					bool reverseProperty = definition["@reverse"].SafeCompare(true);
 					if (!(term.Equals(cid) && !reverseProperty))
@@ -1318,7 +1318,7 @@ namespace JsonLD.Core
 					{
 						defn["@container"] = definition["@container"];
 					}
-					JToken lang = definition["@language"];
+					OmniJsonToken lang = definition["@language"];
 					if (!definition["@language"].IsNull())
 					{
 						defn["@language"] = lang.SafeCompare(false) ? null : lang;
@@ -1326,7 +1326,7 @@ namespace JsonLD.Core
 					ctx[term] = defn;
 				}
 			}
-			JObject rval = new JObject();
+			OmniJsonObject rval = new OmniJsonObject();
 			if (!(ctx == null || ctx.IsEmpty()))
 			{
 				rval["@context"] = ctx;

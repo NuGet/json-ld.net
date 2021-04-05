@@ -2,8 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using JsonLD.Core;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+using JsonLD.OmniJson;
 
 namespace JsonLD.Core
 {
@@ -169,19 +168,19 @@ namespace JsonLD.Core
             /// <returns>the JSON-LD object.</returns>
             /// <exception cref="JsonLdError">JsonLdError</exception>
             /// <exception cref="JsonLD.Core.JsonLdError"></exception>
-            internal virtual JObject ToObject(bool useNativeTypes)
+            internal virtual OmniJsonObject ToObject(bool useNativeTypes)
             {
                 // If value is an an IRI or a blank node identifier, return a new
                 // JSON object consisting
                 // of a single member @id whose value is set to value.
                 if (IsIRI() || IsBlankNode())
                 {
-                    JObject obj = new JObject();
+                    OmniJsonObject obj = new OmniJsonObject();
                     obj["@id"] = GetValue();
                     return obj;
                 }
                 // convert literal object to JSON-LD
-                JObject rval = new JObject();
+                OmniJsonObject rval = new OmniJsonObject();
                 rval["@value"] = GetValue();
                 // add language
                 if (GetLanguage() != null)
@@ -447,9 +446,9 @@ namespace JsonLD.Core
 
         /// <summary>Returns a valid @context containing any namespaces set</summary>
         /// <returns></returns>
-        public virtual JObject GetContext()
+        public virtual OmniJsonObject GetContext()
         {
-            JObject rval = new JObject();
+            OmniJsonObject rval = new OmniJsonObject();
             rval.PutAll(context);
             // replace "" with "@vocab"
             if (rval.ContainsKey(string.Empty))
@@ -461,11 +460,11 @@ namespace JsonLD.Core
 
         /// <summary>parses a @context object and sets any namespaces found within it</summary>
         /// <param name="context"></param>
-        public virtual void ParseContext(JObject context)
+        public virtual void ParseContext(OmniJsonObject context)
         {
             foreach (string key in context.GetKeys())
             {
-                JToken val = context[key];
+                OmniJsonToken val = context[key];
                 if ("@vocab".Equals(key))
                 {
                     if (val.IsNull() || JsonLdUtils.IsString(val))
@@ -480,7 +479,7 @@ namespace JsonLD.Core
                     if ("@context".Equals(key))
                     {
                         // go deeper!
-                        ParseContext((JObject)context["@context"]);
+                        ParseContext((OmniJsonObject)context["@context"]);
                     }
                     else
                     {
@@ -489,16 +488,16 @@ namespace JsonLD.Core
                             // TODO: should we make sure val is a valid URI prefix (i.e. it
                             // ends with /# or ?)
                             // or is it ok that full URIs for terms are used?
-                            if (val.Type == JTokenType.String)
+                            if (val.Type == OmniJsonTokenType.String)
                             {
                                 SetNamespace(key, (string)context[key]);
                             }
                             else
                             {
-                                if (JsonLdUtils.IsObject(val) && ((JObject)val).ContainsKey("@id"
+                                if (JsonLdUtils.IsObject(val) && JavaCompat.ContainsKey(((OmniJsonObject)val), "@id"
                                     ))
                                 {
-                                    SetNamespace(key, (string)((JObject)val)["@id"]);
+                                    SetNamespace(key, (string)((OmniJsonObject)val)["@id"]);
                                 }
                             }
                         }
@@ -591,7 +590,7 @@ namespace JsonLD.Core
         /// <summary>Creates an array of RDF triples for the given graph.</summary>
         /// <remarks>Creates an array of RDF triples for the given graph.</remarks>
         /// <param name="graph">the graph to create RDF triples for.</param>
-        internal virtual void GraphToRDF(string graphName, JObject graph
+        internal virtual void GraphToRDF(string graphName, OmniJsonObject graph
             )
         {
             // 4.2)
@@ -605,17 +604,17 @@ namespace JsonLD.Core
                 {
                     continue;
                 }
-                JObject node = (JObject)graph[id];
-                JArray properties = new JArray(node.GetKeys());
+                OmniJsonObject node = (OmniJsonObject)graph[id];
+                OmniJsonArray properties = new OmniJsonArray(node.GetKeys());
                 properties.SortInPlace();
                 foreach (string property in properties)
                 {
                     var localProperty = property;
-                    JArray values;
+                    OmniJsonArray values;
                     // 4.3.2.1)
                     if ("@type".Equals(localProperty))
                     {
-                        values = (JArray)node["@type"];
+                        values = (OmniJsonArray)node["@type"];
                         localProperty = JSONLDConsts.RdfType;
                     }
                     else
@@ -641,7 +640,7 @@ namespace JsonLD.Core
                                 }
                                 else
                                 {
-                                    values = (JArray)node[localProperty];
+                                    values = (OmniJsonArray)node[localProperty];
                                 }
                             }
                         }
@@ -666,12 +665,12 @@ namespace JsonLD.Core
                     {
                         predicate = new RDFDataset.IRI(localProperty);
                     }
-                    foreach (JToken item in values)
+                    foreach (OmniJsonToken item in values)
                     {
                         // convert @list to triples
                         if (JsonLdUtils.IsList(item))
                         {
-                            JArray list = (JArray)((JObject)item)["@list"];
+                            OmniJsonArray list = (OmniJsonArray)((OmniJsonObject)item)["@list"];
                             RDFDataset.Node last = null;
                             RDFDataset.Node firstBNode = nil;
                             if (!list.IsEmpty())
@@ -721,32 +720,32 @@ namespace JsonLD.Core
         /// <param name="item">the JSON-LD value or node object.</param>
         /// <param name="namer">the UniqueNamer to use to assign blank node names.</param>
         /// <returns>the RDF literal or RDF resource.</returns>
-        private RDFDataset.Node ObjectToRDF(JToken item)
+        private RDFDataset.Node ObjectToRDF(OmniJsonToken item)
         {
             // convert value object to RDF
             if (JsonLdUtils.IsValue(item))
             {
-                JToken value = ((JObject)item)["@value"];
-                JToken datatype = ((JObject)item)["@type"];
+                OmniJsonToken value = ((OmniJsonObject)item)["@value"];
+                OmniJsonToken datatype = ((OmniJsonObject)item)["@type"];
                 // convert to XSD datatypes as appropriate
-                if (value.Type == JTokenType.Boolean || value.Type == JTokenType.Float || value.Type == JTokenType.Integer)
+                if (value.Type == OmniJsonTokenType.Boolean || value.Type == OmniJsonTokenType.Float || value.Type == OmniJsonTokenType.Integer)
                 {
                     // convert to XSD datatype
-                    if (value.Type == JTokenType.Boolean)
+                    if (value.Type == OmniJsonTokenType.Boolean)
                     {
-                        var serializeObject = JsonConvert.SerializeObject(value, Formatting.None).Trim('"');
+                        var serializeObject = TinyJson.JSONWriter.ToJson(value).Trim('"');
                         return new RDFDataset.Literal(serializeObject, datatype.IsNull() ? JSONLDConsts.XsdBoolean
                              : (string)datatype, null);
                     }
                     else
                     {
-                        if (value.Type == JTokenType.Float || datatype.SafeCompare(JSONLDConsts.XsdDouble))
+                        if (value.Type == OmniJsonTokenType.Float || datatype.SafeCompare(JSONLDConsts.XsdDouble))
                         {
-                            // Workaround for Newtonsoft.Json's refusal to cast a JTokenType.Integer to a double.
-                            if (value.Type == JTokenType.Integer)
+                            // Workaround for Newtonsoft.Json's refusal to cast a GenericJsonTokenType.Integer to a double.
+                            if (value.Type == OmniJsonTokenType.Integer)
                             {
-                                int number = (int)value;
-                                value = new JValue((double)number);
+                                long number = (long)value;
+                                value = new OmniJsonValue((double)number);
                             }
                             // canonical double representation
                             return new RDFDataset.Literal(string.Format(CultureInfo.InvariantCulture, "{0:0.0###############E0}", (double)value), datatype.IsNull() ? JSONLDConsts.XsdDouble
@@ -761,14 +760,14 @@ namespace JsonLD.Core
                 }
                 else
                 {
-                    if (((JObject)item).ContainsKey("@language"))
+                    if (JavaCompat.ContainsKey(((OmniJsonObject)item), "@language"))
                     {
                         return new RDFDataset.Literal((string)value, datatype.IsNull() ? JSONLDConsts.RdfLangstring
-                             : (string)datatype, (string)((JObject)item)["@language"]);
+                             : (string)datatype, (string)((OmniJsonObject)item)["@language"]);
                     }
                     else
                     {
-                        var serializeObject = JsonConvert.SerializeObject(value, Formatting.None).Trim('"');
+                        var serializeObject = TinyJson.JSONWriter.ToJson(value).Trim('"');
                         return new RDFDataset.Literal(serializeObject, datatype.IsNull() ? JSONLDConsts.XsdString
                              : (string)datatype, null);
                     }
@@ -780,7 +779,7 @@ namespace JsonLD.Core
                 string id;
                 if (JsonLdUtils.IsObject(item))
                 {
-                    id = (string)((JObject)item)["@id"];
+                    id = (string)((OmniJsonObject)item)["@id"];
                     if (JsonLdUtils.IsRelativeIri(id))
                     {
                         return null;

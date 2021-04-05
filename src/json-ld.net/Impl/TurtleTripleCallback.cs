@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using JsonLD.Core;
-using Newtonsoft.Json.Linq;
+using JsonLD.OmniJson;
 
 namespace JsonLD.Impl
 {
@@ -42,8 +42,8 @@ namespace JsonLD.Impl
                 availableNamespaces[e.Value] = e.Key;
             }
             usedNamespaces = new HashSet<string>();
-            JObject refs = new JObject();
-            JObject ttl = new JObject();
+            OmniJsonObject refs = new OmniJsonObject();
+            OmniJsonObject ttl = new OmniJsonObject();
             foreach (string graphName in dataset.Keys)
             {
                 string localGraphName = graphName;
@@ -62,8 +62,8 @@ namespace JsonLD.Impl
                 // subjid -> [ ref, ref, ref ]
                 string prevSubject = string.Empty;
                 string prevPredicate = string.Empty;
-                JObject thisSubject = null;
-                JArray thisPredicate = null;
+                OmniJsonObject thisSubject = null;
+                OmniJsonArray thisPredicate = null;
                 foreach (RDFDataset.Quad triple in triples)
                 {
                     string subject = triple.GetSubject().GetValue();
@@ -79,11 +79,11 @@ namespace JsonLD.Impl
                             // new predicate
                             if (thisSubject.ContainsKey(predicate))
                             {
-                                thisPredicate = (JArray)thisSubject[predicate];
+                                thisPredicate = (OmniJsonArray)thisSubject[predicate];
                             }
                             else
                             {
-                                thisPredicate = new JArray();
+                                thisPredicate = new OmniJsonArray();
                                 thisSubject[predicate] = thisPredicate;
                             }
                             prevPredicate = predicate;
@@ -94,20 +94,20 @@ namespace JsonLD.Impl
                         // new subject
                         if (ttl.ContainsKey(subject))
                         {
-                            thisSubject = (JObject)ttl[subject];
+                            thisSubject = (OmniJsonObject)ttl[subject];
                         }
                         else
                         {
-                            thisSubject = new JObject();
+                            thisSubject = new OmniJsonObject();
                             ttl[subject] = thisSubject;
                         }
                         if (thisSubject.ContainsKey(predicate))
                         {
-                            thisPredicate = (JArray)thisSubject[predicate];
+                            thisPredicate = (OmniJsonArray)thisSubject[predicate];
                         }
                         else
                         {
-                            thisPredicate = new JArray();
+                            thisPredicate = new OmniJsonArray();
                             thisSubject[predicate] = thisPredicate;
                         }
                         prevSubject = subject;
@@ -125,34 +125,34 @@ namespace JsonLD.Impl
                             // add ref to o
                             if (!refs.ContainsKey(o))
                             {
-                                refs[o] = new JArray();
+                                refs[o] = new OmniJsonArray();
                             }
-                            ((JArray)refs[o]).Add(thisPredicate);
+                            ((OmniJsonArray)refs[o]).Add(thisPredicate);
                         }
                         thisPredicate.Add(o);
                     }
                 }
             }
-            JObject collections = new JObject();
-            JArray subjects = new JArray(ttl.GetKeys());
+            OmniJsonObject collections = new OmniJsonObject();
+            OmniJsonArray subjects = new OmniJsonArray(ttl.GetKeys());
             // find collections
             foreach (string subj in subjects)
             {
-                JObject preds = (JObject)ttl[subj];
+                OmniJsonObject preds = (OmniJsonObject)ttl[subj];
                 if (preds != null && preds.ContainsKey(JSONLDConsts.RdfFirst))
                 {
-                    JArray col = new JArray();
+                    OmniJsonArray col = new OmniJsonArray();
                     collections[subj] = col;
                     while (true)
                     {
-                        JArray first = (JArray)JsonLD.Collections.Remove(preds, JSONLDConsts.RdfFirst);
-                        JToken o = first[0];
+                        OmniJsonArray first = (OmniJsonArray)JsonLD.Collections.Remove(preds, JSONLDConsts.RdfFirst);
+                        OmniJsonToken o = first[0];
                         col.Add(o);
                         // refs
                         if (refs.ContainsKey((string)o))
                         {
-                            ((JArray)refs[(string)o]).Remove(first);
-                            ((JArray)refs[(string)o]).Add(col);
+                            ((OmniJsonArray)refs[(string)o]).Remove(first);
+                            ((OmniJsonArray)refs[(string)o]).Add(col);
                         }
                         string next = (string)JsonLD.Collections.Remove(preds, JSONLDConsts.RdfRest)[0
                             ];
@@ -165,10 +165,10 @@ namespace JsonLD.Impl
                         // it to this col and break out
                         if (collections.ContainsKey(next))
                         {
-                            JsonLD.Collections.AddAll(col, (JArray)JsonLD.Collections.Remove(collections, next));
+                            JsonLD.Collections.AddAll(col, (OmniJsonArray)JsonLD.Collections.Remove(collections, next));
                             break;
                         }
-                        preds = (JObject)JsonLD.Collections.Remove(ttl, next);
+                        preds = (OmniJsonObject)JsonLD.Collections.Remove(ttl, next);
                         JsonLD.Collections.Remove(refs, next);
                     }
                 }
@@ -179,32 +179,32 @@ namespace JsonLD.Impl
             {
                 // skip items if there is more than one reference to them in the
                 // graph
-                if (((JArray)refs[id]).Count > 1)
+                if (((OmniJsonArray)refs[id]).Count > 1)
                 {
                     continue;
                 }
                 // otherwise embed them into the referenced location
-                JToken @object = JsonLD.Collections.Remove(ttl, id);
+                OmniJsonToken @object = JsonLD.Collections.Remove(ttl, id);
                 if (collections.ContainsKey(id))
                 {
-                    @object = new JObject();
-                    JArray tmp = new JArray();
+                    @object = new OmniJsonObject();
+                    OmniJsonArray tmp = new OmniJsonArray();
                     tmp.Add(JsonLD.Collections.Remove(collections, id));
-                    ((JObject)@object)[ColsKey] = tmp;
+                    ((OmniJsonObject)@object)[ColsKey] = tmp;
                 }
-                JArray predicate = (JArray)refs[id][0];
+                OmniJsonArray predicate = (OmniJsonArray)refs[id][0];
                 // replace the one bnode ref with the object
-                predicate[predicate.LastIndexOf(id)] = (JToken)@object;
+                predicate[predicate.LastIndexOf(id)] = (OmniJsonToken)@object;
             }
             // replace the rest of the collections
             foreach (string id_1 in collections.GetKeys())
             {
-                JObject subj_1 = (JObject)ttl[id_1];
+                OmniJsonObject subj_1 = (OmniJsonObject)ttl[id_1];
                 if (!subj_1.ContainsKey(ColsKey))
                 {
-                    subj_1[ColsKey] = new JArray();
+                    subj_1[ColsKey] = new OmniJsonArray();
                 }
-                ((JArray)subj_1[ColsKey]).Add(collections[id_1]);
+                ((OmniJsonArray)subj_1[ColsKey]).Add(collections[id_1]);
             }
             // build turtle output
             string output = GenerateTurtle(ttl, 0, 0, false);
@@ -263,8 +263,8 @@ namespace JsonLD.Impl
                 else
                 {
                     // must be an object
-                    JObject tmp = new JObject();
-                    tmp["_:x"] = (JObject)@object;
+                    OmniJsonObject tmp = new OmniJsonObject();
+                    tmp["_:x"] = (OmniJsonObject)@object;
                     obj = GenerateTurtle(tmp, indentation + 1, lineLength, true);
                 }
             }
@@ -302,14 +302,14 @@ namespace JsonLD.Impl
             return rval;
         }
 
-        private string GenerateTurtle(JObject ttl, int indentation, int lineLength, bool isObject)
+        private string GenerateTurtle(OmniJsonObject ttl, int indentation, int lineLength, bool isObject)
         {
             string rval = string.Empty;
             IEnumerator<string> subjIter = ttl.GetKeys().GetEnumerator();
             while (subjIter.MoveNext())
             {
                 string subject = subjIter.Current;
-                JObject subjval = (JObject)ttl[subject];
+                OmniJsonObject subjval = (OmniJsonObject)ttl[subject];
                 // boolean isBlankNode = subject.startsWith("_:");
                 bool hasOpenBnodeBracket = false;
                 if (subject.StartsWith("_:"))
@@ -329,16 +329,17 @@ namespace JsonLD.Impl
                     // check for collection
                     if (subjval.ContainsKey(ColsKey))
                     {
-                        JArray collections = (JArray)JsonLD.Collections.Remove(subjval, ColsKey);
-                        foreach (JToken collection in collections)
+                        OmniJsonArray collections = (OmniJsonArray)JsonLD.Collections.Remove(subjval, ColsKey);
+                        foreach (OmniJsonToken collection in collections)
                         {
                             rval += "( ";
                             lineLength += 2;
 
-                            IEnumerator<JToken> objIter = ((JArray)collection).Children().GetEnumerator();
+                            // TODO(sblom): What does JSON.NET "Children" do?
+                            IEnumerator<OmniJsonToken> objIter = ((OmniJsonArray)collection).GetEnumerator();
                             while (objIter.MoveNext())
                             {
-                                JToken @object = objIter.Current;
+                                OmniJsonToken @object = objIter.Current;
                                 rval += GenerateObject(@object, string.Empty, objIter.MoveNext(), indentation, lineLength
                                     );
                                 lineLength = rval.Length - rval.LastIndexOf("\n");
@@ -360,10 +361,10 @@ namespace JsonLD.Impl
                     string predicate = predIter.Current;
                     rval += GetURI(predicate) + " ";
                     lineLength += predicate.Length + 1;
-                    IEnumerator<JToken> objIter = ((JArray)ttl[subject][predicate]).Children().GetEnumerator();
+                    IEnumerator<OmniJsonToken> objIter = ((OmniJsonArray)ttl[subject][predicate]).GetEnumerator();
                     while (objIter.MoveNext())
                     {
-                        JToken @object = objIter.Current;
+                        OmniJsonToken @object = objIter.Current;
                         rval += GenerateObject(@object, ",", objIter.MoveNext(), indentation, lineLength);
                         lineLength = rval.Length - rval.LastIndexOf("\n");
                     }

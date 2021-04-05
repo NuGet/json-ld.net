@@ -1,6 +1,6 @@
 ﻿using JsonLD.Core;
+using JsonLD.OmniJson;
 using JsonLD.Util;
-using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -15,7 +15,7 @@ namespace JsonLD.Test
         [Theory, MemberData(nameof(ExtendedFunctionalityCases))]
         public void ExtendedFunctionalityTestPasses(string id, ExtendedFunctionalityTestCase testCase)
         {
-            JToken result = testCase.run();
+            OmniJsonToken result = testCase.run();
             if (testCase.error != null)
             {
                 Assert.True(((string)result["error"]).StartsWith((string)testCase.error), "Resulting error doesn't match expectations.");
@@ -27,10 +27,10 @@ namespace JsonLD.Test
 #if DEBUG
                     Console.WriteLine(id);
                     Console.WriteLine("Actual:");
-                    Console.Write(JSONUtils.ToPrettyString(result));
+                    Console.Write(TinyJson.JSONWriter.ToJson(result));
                     Console.WriteLine("--------------------------");
                     Console.WriteLine("Expected:");
-                    Console.Write(JSONUtils.ToPrettyString(testCase.output));
+                    Console.Write(TinyJson.JSONWriter.ToJson(testCase.output));
                     Console.WriteLine("--------------------------");
 #endif
 
@@ -41,12 +41,12 @@ namespace JsonLD.Test
 
         public class ExtendedFunctionalityTestCase
         {
-            public JToken  input { get; set; }
-            public JToken output { get; set; }
-            public JToken context { get; set; }
-            public JToken frame { get; set; }
-            public JToken error { get; set; }
-            public Func<JToken> run { get; set; }
+            public OmniJsonToken  input { get; set; }
+            public OmniJsonToken output { get; set; }
+            public OmniJsonToken context { get; set; }
+            public OmniJsonToken frame { get; set; }
+            public OmniJsonToken error { get; set; }
+            public Func<OmniJsonToken> run { get; set; }
         }
 
         public static IEnumerable<object[]> ExtendedFunctionalityCases()
@@ -69,11 +69,11 @@ namespace JsonLD.Test
             
             foreach (string manifest in SortingManifests)
             {
-                JToken manifestJson = jsonFetcher.GetJson(manifest, rootDirectory);
+                OmniJsonToken manifestJson = jsonFetcher.GetJson(manifest, rootDirectory);
 
-                foreach (JObject testcase in manifestJson["sequence"])
+                foreach (OmniJsonObject testcase in manifestJson["sequence"])
                 {
-                    Func<JToken> run = null;
+                    Func<OmniJsonToken> run = null;
                     ExtendedFunctionalityTestCase newCase = new ExtendedFunctionalityTestCase();
 
                     newCase.input = jsonFetcher.GetJson(manifestJson["input"], rootDirectory);
@@ -110,10 +110,10 @@ namespace JsonLD.Test
 
                     if (testType == "jld:FromRDF")
                     {
-                        JToken quads = newCase.input["quads"];
+                        OmniJsonToken quads = newCase.input["quads"];
                         RDFDataset rdf = new RDFDataset();
 
-                        foreach (JToken quad in quads)
+                        foreach (OmniJsonToken quad in quads)
                         {
                             string subject = (string)quad["subject"];
                             string predicate = (string)quad["predicate"];

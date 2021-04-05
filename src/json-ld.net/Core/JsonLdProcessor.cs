@@ -2,8 +2,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using JsonLD.Core;
+using JsonLD.OmniJson;
 using JsonLD.Impl;
-using Newtonsoft.Json.Linq;
 
 namespace JsonLD.Core
 {
@@ -13,34 +13,34 @@ namespace JsonLD.Core
     public class JsonLdProcessor
     {
         /// <exception cref="JsonLD.Core.JsonLdError"></exception>
-        public static JObject Compact(JToken input, JToken context, JsonLdOptions opts)
+        public static OmniJsonObject Compact(OmniJsonToken input, OmniJsonToken context, JsonLdOptions opts)
         {
             // 1)
             // TODO: look into java futures/promises
             // 2-6) NOTE: these are all the same steps as in expand
-            JToken expanded = Expand(input, opts);
+            OmniJsonToken expanded = Expand(input, opts);
             // 7)
-            if (context is JObject && ((IDictionary<string, JToken>)context).ContainsKey(
+            if (context is OmniJsonObject && ((IDictionary<string, OmniJsonToken>)context).ContainsKey(
                 "@context"))
             {
-                context = ((JObject)context)["@context"];
+                context = ((OmniJsonObject)context)["@context"];
             }
             Context activeCtx = new Context(opts);
             activeCtx = activeCtx.Parse(context);
             // 8)
-            JToken compacted = new JsonLdApi(opts).Compact(activeCtx, null, expanded, opts.GetCompactArrays
+            OmniJsonToken compacted = new JsonLdApi(opts).Compact(activeCtx, null, expanded, opts.GetCompactArrays
                 ());
             // final step of Compaction Algorithm
             // TODO: SPEC: the result result is a NON EMPTY array,
-            if (compacted is JArray)
+            if (compacted is OmniJsonArray)
             {
-                if (((JArray)compacted).IsEmpty())
+                if (((OmniJsonArray)compacted).IsEmpty())
                 {
-                    compacted = new JObject();
+                    compacted = new OmniJsonObject();
                 }
                 else
                 {
-                    JObject tmp = new JObject();
+                    OmniJsonObject tmp = new OmniJsonObject();
                     // TODO: SPEC: doesn't specify to use vocab = true here
                     tmp[activeCtx.CompactIri("@graph", true)] = compacted;
                     compacted = tmp;
@@ -50,24 +50,24 @@ namespace JsonLD.Core
             {
                 // TODO: figure out if we can make "@context" appear at the start of
                 // the keySet
-                if ((context is JObject && !((JObject)context).IsEmpty())
-                     || (context is JArray && !((JArray)context).IsEmpty()))
+                if ((context is OmniJsonObject && !Collections.IsEmpty(((OmniJsonObject)context)))
+                     || (context is OmniJsonArray && !((OmniJsonArray)context).IsEmpty()))
                 {
                     compacted["@context"] = context;
                 }
             }
             // 9)
-            return (JObject)compacted;
+            return (OmniJsonObject)compacted;
         }
 
         /// <exception cref="JsonLD.Core.JsonLdError"></exception>
-        public static JArray Expand(JToken input, JsonLdOptions opts)
+        public static OmniJsonArray Expand(OmniJsonToken input, JsonLdOptions opts)
         {
             // 1)
             // TODO: look into java futures/promises
 
             // 2) verification of DOMString IRI
-            bool isIriString = input.Type == JTokenType.String;
+            bool isIriString = input.Type == OmniJsonTokenType.String;
             if (isIriString)
             {
                 bool hasColon = false;
@@ -112,11 +112,11 @@ namespace JsonLD.Core
             // 4)
             if (opts.GetExpandContext() != null)
             {
-                JObject exCtx = opts.GetExpandContext();
-                if (exCtx is JObject && ((IDictionary<string, JToken>)exCtx).ContainsKey("@context"
+                OmniJsonObject exCtx = opts.GetExpandContext();
+                if (exCtx is OmniJsonObject && ((IDictionary<string, OmniJsonToken>)exCtx).ContainsKey("@context"
                     ))
                 {
-                    exCtx = (JObject)((IDictionary<string, JToken>)exCtx)["@context"];
+                    exCtx = (OmniJsonObject)((IDictionary<string, OmniJsonToken>)exCtx)["@context"];
                 }
                 activeCtx = activeCtx.Parse(exCtx);
             }
@@ -124,43 +124,43 @@ namespace JsonLD.Core
             // TODO: add support for getting a context from HTTP when content-type
             // is set to a jsonld compatable format
             // 6)
-            JToken expanded = new JsonLdApi(opts).Expand(activeCtx, input);
+            OmniJsonToken expanded = new JsonLdApi(opts).Expand(activeCtx, input);
             // final step of Expansion Algorithm
-            if (expanded is JObject && ((IDictionary<string,JToken>)expanded).ContainsKey("@graph") && (
-                (IDictionary<string, JToken>)expanded).Count == 1)
+            if (expanded is OmniJsonObject && ((IDictionary<string,OmniJsonToken>)expanded).ContainsKey("@graph") && (
+                (IDictionary<string, OmniJsonToken>)expanded).Count == 1)
             {
-                expanded = ((JObject)expanded)["@graph"];
+                expanded = ((OmniJsonObject)expanded)["@graph"];
             }
             else
             {
                 if (expanded.IsNull())
                 {
-                    expanded = new JArray();
+                    expanded = new OmniJsonArray();
                 }
             }
             // normalize to an array
-            if (!(expanded is JArray))
+            if (!(expanded is OmniJsonArray))
             {
-                JArray tmp = new JArray();
+                OmniJsonArray tmp = new OmniJsonArray();
                 tmp.Add(expanded);
                 expanded = tmp;
             }
-            return (JArray)expanded;
+            return (OmniJsonArray)expanded;
         }
 
         /// <exception cref="JsonLD.Core.JsonLdError"></exception>
-        public static JArray Expand(JToken input)
+        public static OmniJsonArray Expand(OmniJsonToken input)
         {
             return Expand(input, new JsonLdOptions(string.Empty));
         }
 
         /// <exception cref="JsonLD.Core.JsonLdError"></exception>
-        public static JToken Flatten(JToken input, JToken context, JsonLdOptions opts)
+        public static OmniJsonToken Flatten(OmniJsonToken input, OmniJsonToken context, JsonLdOptions opts)
         {
             // 2-6) NOTE: these are all the same steps as in expand
-            JArray expanded = Expand(input, opts);
+            OmniJsonArray expanded = Expand(input, opts);
             // 7)
-            if (context is JObject && ((IDictionary<string, JToken>)context).ContainsKey(
+            if (context is OmniJsonObject && ((IDictionary<string, OmniJsonToken>)context).ContainsKey(
                 "@context"))
             {
                 context = context["@context"];
@@ -169,55 +169,55 @@ namespace JsonLD.Core
             // 9) NOTE: the next block is the Flattening Algorithm described in
             // http://json-ld.org/spec/latest/json-ld-api/#flattening-algorithm
             // 1)
-            JObject nodeMap = new JObject();
-            nodeMap["@default"] = new JObject();
+            OmniJsonObject nodeMap = new OmniJsonObject();
+            nodeMap["@default"] = new OmniJsonObject();
             // 2)
             new JsonLdApi(opts).GenerateNodeMap(expanded, nodeMap);
             // 3)
-            JObject defaultGraph = (JObject)JsonLD.Collections.Remove
+            OmniJsonObject defaultGraph = (OmniJsonObject)JsonLD.Collections.Remove
                 (nodeMap, "@default");
             // 4)
             foreach (string graphName in nodeMap.GetKeys())
             {
-                JObject graph = (JObject)nodeMap[graphName];
+                OmniJsonObject graph = (OmniJsonObject)nodeMap[graphName];
                 // 4.1+4.2)
-                JObject entry;
+                OmniJsonObject entry;
                 if (!defaultGraph.ContainsKey(graphName))
                 {
-                    entry = new JObject();
+                    entry = new OmniJsonObject();
                     entry["@id"] = graphName;
                     defaultGraph[graphName] = entry;
                 }
                 else
                 {
-                    entry = (JObject)defaultGraph[graphName];
+                    entry = (OmniJsonObject)defaultGraph[graphName];
                 }
                 // 4.3)
                 // TODO: SPEC doesn't specify that this should only be added if it
                 // doesn't exists
                 if (!entry.ContainsKey("@graph"))
                 {
-                    entry["@graph"] = new JArray();
+                    entry["@graph"] = new OmniJsonArray();
                 }
-                JArray keys = new JArray(graph.GetKeys());
+                OmniJsonArray keys = new OmniJsonArray(graph.GetKeys());
                 keys.SortInPlace();
                 foreach (string id in keys)
                 {
-                    JObject node = (JObject)graph[id];
+                    OmniJsonObject node = (OmniJsonObject)graph[id];
                     if (!(node.ContainsKey("@id") && node.Count == 1))
                     {
-                        ((JArray)entry["@graph"]).Add(node);
+                        ((OmniJsonArray)entry["@graph"]).Add(node);
                     }
                 }
             }
             // 5)
-            JArray flattened = new JArray();
+            OmniJsonArray flattened = new OmniJsonArray();
             // 6)
-            JArray keys_1 = new JArray(defaultGraph.GetKeys());
+            OmniJsonArray keys_1 = new OmniJsonArray(defaultGraph.GetKeys());
             keys_1.SortInPlace();
             foreach (string id_1 in keys_1)
             {
-                JObject node = (JObject)defaultGraph[id_1
+                OmniJsonObject node = (OmniJsonObject)defaultGraph[id_1
                     ];
                 if (!(node.ContainsKey("@id") && node.Count == 1))
                 {
@@ -230,16 +230,16 @@ namespace JsonLD.Core
                 Context activeCtx = new Context(opts);
                 activeCtx = activeCtx.Parse(context);
                 // TODO: only instantiate one jsonldapi
-                JToken compacted = new JsonLdApi(opts).Compact(activeCtx, null, flattened, opts.GetCompactArrays
+                OmniJsonToken compacted = new JsonLdApi(opts).Compact(activeCtx, null, flattened, opts.GetCompactArrays
                     ());
-                if (!(compacted is JArray))
+                if (!(compacted is OmniJsonArray))
                 {
-                    JArray tmp = new JArray();
+                    OmniJsonArray tmp = new OmniJsonArray();
                     tmp.Add(compacted);
                     compacted = tmp;
                 }
                 string alias = activeCtx.CompactIri("@graph");
-                JObject rval = activeCtx.Serialize();
+                OmniJsonObject rval = activeCtx.Serialize();
                 rval[alias] = compacted;
                 return rval;
             }
@@ -247,35 +247,35 @@ namespace JsonLD.Core
         }
 
         /// <exception cref="JsonLD.Core.JsonLdError"></exception>
-        public static JToken Flatten(JToken input, JsonLdOptions opts)
+        public static OmniJsonToken Flatten(OmniJsonToken input, JsonLdOptions opts)
         {
             return Flatten(input, null, opts);
         }
 
         /// <exception cref="JsonLD.Core.JsonLdError"></exception>
-        public static JObject Frame(JToken input, JToken frame, JsonLdOptions
+        public static OmniJsonObject Frame(OmniJsonToken input, OmniJsonToken frame, JsonLdOptions
              options)
         {
-            if (frame is JObject)
+            if (frame is OmniJsonObject)
             {
-                frame = JsonLdUtils.Clone((JObject)frame);
+                frame = JsonLdUtils.Clone((OmniJsonObject)frame);
             }
             // TODO string/IO input
-            JToken expandedInput = Expand(input, options);
-            JArray expandedFrame = Expand(frame, options);
+            OmniJsonToken expandedInput = Expand(input, options);
+            OmniJsonArray expandedFrame = Expand(frame, options);
             JsonLdApi api = new JsonLdApi(expandedInput, options);
-            JArray framed = api.Frame(expandedInput, expandedFrame);
+            OmniJsonArray framed = api.Frame(expandedInput, expandedFrame);
             Context activeCtx = api.context.Parse(frame["@context"
                 ]);
-            JToken compacted = api.Compact(activeCtx, null, framed);
-            if (!(compacted is JArray))
+            OmniJsonToken compacted = api.Compact(activeCtx, null, framed);
+            if (!(compacted is OmniJsonArray))
             {
-                JArray tmp = new JArray();
+                OmniJsonArray tmp = new OmniJsonArray();
                 tmp.Add(compacted);
                 compacted = tmp;
             }
             string alias = activeCtx.CompactIri("@graph");
-            JObject rval = activeCtx.Serialize();
+            OmniJsonObject rval = activeCtx.Serialize();
             rval[alias] = compacted;
             JsonLdUtils.RemovePreserve(activeCtx, rval, options);
             return rval;
@@ -323,11 +323,11 @@ namespace JsonLD.Core
         /// <?></?>
         /// <param name="callback">(err, output) called once the operation completes.</param>
         /// <exception cref="JsonLDNet.Core.JsonLdError"></exception>
-        public static JToken FromRDF(JToken dataset, JsonLdOptions options)
+        public static OmniJsonToken FromRDF(OmniJsonToken dataset, JsonLdOptions options)
         {
             // handle non specified serializer case
             IRDFParser parser = null;
-            if (options.format == null && dataset.Type == JTokenType.String)
+            if (options.format == null && dataset.Type == OmniJsonTokenType.String)
             {
                 // attempt to parse the input as nquads
                 options.format = "application/nquads";
@@ -345,7 +345,7 @@ namespace JsonLD.Core
         }
 
         /// <exception cref="JsonLD.Core.JsonLdError"></exception>
-        public static JToken FromRDF(JToken dataset)
+        public static OmniJsonToken FromRDF(OmniJsonToken dataset)
         {
             return FromRDF(dataset, new JsonLdOptions(string.Empty));
         }
@@ -353,12 +353,12 @@ namespace JsonLD.Core
         /// <summary>Uses a specific serializer.</summary>
         /// <remarks>Uses a specific serializer.</remarks>
         /// <exception cref="JsonLD.Core.JsonLdError"></exception>
-        public static JToken FromRDF(JToken input, JsonLdOptions options, IRDFParser parser
+        public static OmniJsonToken FromRDF(OmniJsonToken input, JsonLdOptions options, IRDFParser parser
             )
         {
             RDFDataset dataset = parser.Parse(input);
             // convert from RDF
-            JToken rval = new JsonLdApi(options).FromRDF(dataset);
+            OmniJsonToken rval = new JsonLdApi(options).FromRDF(dataset);
             // re-process using the generated context if outputForm is set
             if (options.outputForm != null)
             {
@@ -389,7 +389,7 @@ namespace JsonLD.Core
         }
 
         /// <exception cref="JsonLD.Core.JsonLdError"></exception>
-        public static JToken FromRDF(JToken input, IRDFParser parser)
+        public static OmniJsonToken FromRDF(OmniJsonToken input, IRDFParser parser)
         {
             return FromRDF(input, new JsonLdOptions(string.Empty), parser);
         }
@@ -404,30 +404,30 @@ namespace JsonLD.Core
         /// <?></?>
         /// <param name="callback">(err, dataset) called once the operation completes.</param>
         /// <exception cref="JsonLDNet.Core.JsonLdError"></exception>
-        public static object ToRDF(JToken input, IJSONLDTripleCallback callback, JsonLdOptions
+        public static object ToRDF(OmniJsonToken input, IJSONLDTripleCallback callback, JsonLdOptions
              options)
         {
-            JToken expandedInput = Expand(input, options);
+            OmniJsonToken expandedInput = Expand(input, options);
             JsonLdApi api = new JsonLdApi(expandedInput, options);
             RDFDataset dataset = api.ToRDF();
             // generate namespaces from context
             if (options.useNamespaces)
             {
-                JArray _input;
-                if (input is JArray)
+                OmniJsonArray _input;
+                if (input is OmniJsonArray)
                 {
-                    _input = (JArray)input;
+                    _input = (OmniJsonArray)input;
                 }
                 else
                 {
-                    _input = new JArray();
-                    _input.Add((JObject)input);
+                    _input = new OmniJsonArray();
+                    _input.Add((OmniJsonObject)input);
                 }
-                foreach (JToken e in _input)
+                foreach (OmniJsonToken e in _input)
                 {
-                    if (((JObject)e).ContainsKey("@context"))
+                    if (JavaCompat.ContainsKey(((OmniJsonObject)e), "@context"))
                     {
-                        dataset.ParseContext((JObject)e["@context"]);
+                        dataset.ParseContext((OmniJsonObject)e["@context"]);
                     }
                 }
             }
@@ -457,19 +457,19 @@ namespace JsonLD.Core
         }
 
         /// <exception cref="JsonLD.Core.JsonLdError"></exception>
-        public static object ToRDF(JToken input, JsonLdOptions options)
+        public static object ToRDF(OmniJsonToken input, JsonLdOptions options)
         {
             return ToRDF(input, null, options);
         }
 
         /// <exception cref="JsonLD.Core.JsonLdError"></exception>
-        public static object ToRDF(JToken input, IJSONLDTripleCallback callback)
+        public static object ToRDF(OmniJsonToken input, IJSONLDTripleCallback callback)
         {
             return ToRDF(input, callback, new JsonLdOptions(string.Empty));
         }
 
         /// <exception cref="JsonLD.Core.JsonLdError"></exception>
-        public static object ToRDF(JToken input)
+        public static object ToRDF(OmniJsonToken input)
         {
             return ToRDF(input, new JsonLdOptions(string.Empty));
         }
@@ -485,7 +485,7 @@ namespace JsonLD.Core
         /// <param name="callback">(err, normalized) called once the operation completes.</param>
         /// <exception cref="JSONLDProcessingError">JSONLDProcessingError</exception>
         /// <exception cref="JsonLDNet.Core.JsonLdError"></exception>
-        public static object Normalize(JToken input, JsonLdOptions options)
+        public static object Normalize(OmniJsonToken input, JsonLdOptions options)
         {
             JsonLdOptions opts = options.Clone();
             opts.format = null;
@@ -494,7 +494,7 @@ namespace JsonLD.Core
         }
 
         /// <exception cref="JsonLD.Core.JsonLdError"></exception>
-        public static object Normalize(JToken input)
+        public static object Normalize(OmniJsonToken input)
         {
             return Normalize(input, new JsonLdOptions(string.Empty));
         }

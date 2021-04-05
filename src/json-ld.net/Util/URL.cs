@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using JsonLD.OmniJson;
 using JsonLD.Util;
-using Newtonsoft.Json.Linq;
 
 namespace JsonLD.Util
 {
@@ -193,14 +193,14 @@ namespace JsonLD.Util
             return rval;
         }
 
-        public static string RemoveBase(JToken baseobj, string iri)
+        public static string RemoveBase(OmniJsonToken baseobj, string iri)
         {
             if (baseobj.IsNull())
             {
                 return iri;
             }
             URL @base;
-            if (baseobj.Type == JTokenType.String)
+            if (baseobj.Type == OmniJsonTokenType.String)
             {
                 @base = URL.Parse((string)baseobj);
             }

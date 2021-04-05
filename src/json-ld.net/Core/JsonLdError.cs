@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using JsonLD.Core;
-using Newtonsoft.Json.Linq;
+using JsonLD.OmniJson;
 
 namespace JsonLD.Core
 {
@@ -9,7 +9,7 @@ namespace JsonLD.Core
     public class JsonLdError : Exception
     {
         private JsonLdError.Error type;
-        internal JObject details = null;
+        internal OmniJsonObject details = null;
 
         internal JsonLdError(JsonLdError.Error type, object detail, Exception innerException)
             : base(detail == null ? string.Empty : detail.ToString(), innerException)
@@ -182,7 +182,7 @@ namespace JsonLD.Core
             return type;
         }
 
-        public virtual JObject GetDetails()
+        public virtual OmniJsonObject GetDetails()
         {
             return details;
         }

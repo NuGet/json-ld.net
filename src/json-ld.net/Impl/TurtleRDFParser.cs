@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using JsonLD.Core;
+using JsonLD.OmniJson;
 using JsonLD.Impl;
-using Newtonsoft.Json.Linq;
 
 namespace JsonLD.Impl
 {
@@ -233,9 +233,9 @@ namespace JsonLD.Impl
         }
 
         /// <exception cref="JsonLD.Core.JsonLdError"></exception>
-        public virtual RDFDataset Parse(JToken input)
+        public virtual RDFDataset Parse(OmniJsonToken input)
         {
-            if (!(input.Type == JTokenType.String))
+            if (!(input.Type == OmniJsonTokenType.String))
             {
                 throw new JsonLdError(JsonLdError.Error.InvalidInput, "Invalid input; Triple RDF Parser requires a string input"
                     );

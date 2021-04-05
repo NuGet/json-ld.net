@@ -3,8 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using JsonLD.Core;
+using JsonLD.OmniJson;
 using JsonLD.Util;
-using Newtonsoft.Json.Linq;
 
 namespace JsonLD.Core
 {
@@ -40,7 +40,7 @@ namespace JsonLD.Core
         /// <param name="v">the value to check.</param>
         /// <?></?>
         /// <returns>true if the value is a keyword, false if not.</returns>
-        internal static bool IsKeyword(JToken key)
+        internal static bool IsKeyword(OmniJsonToken key)
         {
             if (!IsString(key))
             {
@@ -50,7 +50,7 @@ namespace JsonLD.Core
             return keywords.Contains(keyString);
         }
 
-        public static bool DeepCompare(JToken v1, JToken v2, bool listOrderMatters)
+        public static bool DeepCompare(OmniJsonToken v1, OmniJsonToken v2, bool listOrderMatters)
         {
             if (v1 == null)
             {
@@ -64,17 +64,17 @@ namespace JsonLD.Core
                 }
                 else
                 {
-                    if (v1 is JObject && v2 is JObject)
+                    if (v1 is OmniJsonObject && v2 is OmniJsonObject)
                     {
-                        JObject m1 = (JObject)v1;
-                        JObject m2 = (JObject)v2;
+                        OmniJsonObject m1 = (OmniJsonObject)v1;
+                        OmniJsonObject m2 = (OmniJsonObject)v2;
                         if (m1.Count != m2.Count)
                         {
                             return false;
                         }
                         foreach (string key in m1.GetKeys())
                         {
-                            if (!((IDictionary<string,JToken>)m2).ContainsKey(key) ||
+                            if (!((IDictionary<string,OmniJsonToken>)m2).ContainsKey(key) ||
                                 !DeepCompare(m1[key], m2[key], listOrderMatters))
                             {
                                 return false;
@@ -84,10 +84,10 @@ namespace JsonLD.Core
                     }
                     else
                     {
-                        if (v1 is JArray && v2 is JArray)
+                        if (v1 is OmniJsonArray && v2 is OmniJsonArray)
                         {
-                            JArray l1 = (JArray)v1;
-                            JArray l2 = (JArray)v2;
+                            OmniJsonArray l1 = (OmniJsonArray)v1;
+                            OmniJsonArray l2 = (OmniJsonArray)v2;
                             var l1Count = l1.Count;
                             var l2Count = l2.Count;
                             if (l1Count != l2Count)
@@ -99,7 +99,7 @@ namespace JsonLD.Core
                             bool[] alreadyMatched = new bool[l2Count];
                             for (int i = 0; i < l1Count; i++)
                             {
-                                JToken o1 = l1[i];
+                                OmniJsonToken o1 = l1[i];
                                 bool gotmatch = false;
                                 if (listOrderMatters)
                                 {
@@ -135,14 +135,14 @@ namespace JsonLD.Core
             }
         }
 
-        public static bool DeepCompare(JToken v1, JToken v2)
+        public static bool DeepCompare(OmniJsonToken v1, OmniJsonToken v2)
         {
             return DeepCompare(v1, v2, false);
         }
 
-        public static bool DeepContains(JArray values, JToken value)
+        public static bool DeepContains(OmniJsonArray values, OmniJsonToken value)
         {
-            foreach (JToken item in values)
+            foreach (OmniJsonToken item in values)
             {
                 if (DeepCompare(item, value, false))
                 {
@@ -152,57 +152,57 @@ namespace JsonLD.Core
             return false;
         }
 
-        internal static void MergeValue(JObject obj, string key, JToken value)
+        internal static void MergeValue(OmniJsonObject obj, string key, OmniJsonToken value)
         {
             MergeValue(obj, key, value, skipSetContainsCheck: false);
         }
 
-        internal static void MergeValue(JObject obj, string key, JToken value, bool skipSetContainsCheck)
+        internal static void MergeValue(OmniJsonObject obj, string key, OmniJsonToken value, bool skipSetContainsCheck)
         {
             if (obj == null)
             {
                 return;
             }
-            JArray values = (JArray)obj[key];
+            OmniJsonArray values = (OmniJsonArray)obj[key];
             if (values == null)
             {
-                values = new JArray();
+                values = new OmniJsonArray();
                 obj[key] = values;
             }
             if (skipSetContainsCheck ||
                 "@list".Equals(key) ||
-                (value is JObject && ((IDictionary<string, JToken>)value).ContainsKey("@list")) ||
-                !DeepContains(values, (JToken)value))
+                (value is OmniJsonObject && ((IDictionary<string, OmniJsonToken>)value).ContainsKey("@list")) ||
+                !DeepContains(values, (OmniJsonToken)value))
             {
                 values.Add(value);
             }
         }
 
-        internal static void MergeCompactedValue(JObject obj, string 
-            key, JToken value)
+        internal static void MergeCompactedValue(OmniJsonObject obj, string 
+            key, OmniJsonToken value)
         {
             if (obj == null)
             {
                 return;
             }
-            JToken prop = obj[key];
+            OmniJsonToken prop = obj[key];
             if (prop.IsNull())
             {
                 obj[key] = value;
                 return;
             }
-            if (!(prop is JArray))
+            if (!(prop is OmniJsonArray))
             {
-                JArray tmp = new JArray();
+                OmniJsonArray tmp = new OmniJsonArray();
                 tmp.Add(prop);
             }
-            if (value is JArray)
+            if (value is OmniJsonArray)
             {
-                JsonLD.Collections.AddAll(((JArray)prop), (JArray)value);
+                JsonLD.Collections.AddAll(((OmniJsonArray)prop), (OmniJsonArray)value);
             }
             else
             {
-                ((JArray)prop).Add(value);
+                ((OmniJsonArray)prop).Add(value);
             }
         }
 
@@ -216,16 +216,16 @@ namespace JsonLD.Core
         /// <remarks>Returns true if the given value is a subject with properties.</remarks>
         /// <param name="v">the value to check.</param>
         /// <returns>true if the value is a subject with properties, false if not.</returns>
-        internal static bool IsNode(JToken v)
+        internal static bool IsNode(OmniJsonToken v)
         {
             // Note: A value is a subject if all of these hold true:
             // 1. It is an Object.
             // 2. It is not a @value, @set, or @list.
             // 3. It has more than 1 key OR any existing key is not @id.
-            if (v is JObject && !(((IDictionary<string, JToken>)v).ContainsKey("@value") || ((IDictionary<string, JToken>
-                )v).ContainsKey("@set") || ((IDictionary<string, JToken>)v).ContainsKey("@list")))
+            if (v is OmniJsonObject && !(((IDictionary<string, OmniJsonToken>)v).ContainsKey("@value") || ((IDictionary<string, OmniJsonToken>
+                )v).ContainsKey("@set") || ((IDictionary<string, OmniJsonToken>)v).ContainsKey("@list")))
             {
-                return ((IDictionary<string, JToken>)v).Count > 1 || !((IDictionary<string, JToken>)v).ContainsKey
+                return ((IDictionary<string, OmniJsonToken>)v).Count > 1 || !((IDictionary<string, OmniJsonToken>)v).ContainsKey
                     ("@id");
             }
             return false;
@@ -235,13 +235,13 @@ namespace JsonLD.Core
         /// <remarks>Returns true if the given value is a subject reference.</remarks>
         /// <param name="v">the value to check.</param>
         /// <returns>true if the value is a subject reference, false if not.</returns>
-        internal static bool IsNodeReference(JToken v)
+        internal static bool IsNodeReference(OmniJsonToken v)
         {
             // Note: A value is a subject reference if all of these hold true:
             // 1. It is an Object.
             // 2. It has a single key: @id.
-            return (v is JObject && ((IDictionary<string, JToken>)v).Count == 1 && ((IDictionary
-                <string, JToken>)v).ContainsKey("@id"));
+            return (v is OmniJsonObject && ((IDictionary<string, OmniJsonToken>)v).Count == 1 && ((IDictionary
+                <string, OmniJsonToken>)v).ContainsKey("@id"));
         }
 
         // TODO: fix this test
@@ -268,17 +268,17 @@ namespace JsonLD.Core
         /// <param name="value">the value to add.</param>
         /// <?></?>
         /// <?></?>
-        internal static void AddValue(JObject subject, string property
-            , JToken value, bool propertyIsArray, bool allowDuplicate)
+        internal static void AddValue(OmniJsonObject subject, string property
+            , OmniJsonToken value, bool propertyIsArray, bool allowDuplicate)
         {
             if (IsArray(value))
             {
-                if (((JArray)value).Count == 0 && propertyIsArray && !subject.ContainsKey(property
+                if (((OmniJsonArray)value).Count == 0 && propertyIsArray && !subject.ContainsKey(property
                     ))
                 {
-                    subject[property] = new JArray();
+                    subject[property] = new OmniJsonArray();
                 }
-                foreach (JToken val in (JArray)value)
+                foreach (OmniJsonToken val in (OmniJsonArray)value)
                 {
                     AddValue(subject, property, val, propertyIsArray, allowDuplicate);
                 }
@@ -292,24 +292,24 @@ namespace JsonLD.Core
                     // make property an array if value not present or always an array
                     if (!IsArray(subject[property]) && (!hasValue || propertyIsArray))
                     {
-                        JArray tmp = new JArray();
+                        OmniJsonArray tmp = new OmniJsonArray();
                         tmp.Add(subject[property]);
                         subject[property] = tmp;
                     }
                     // add new value
                     if (!hasValue)
                     {
-                        ((JArray)subject[property]).Add(value);
+                        ((OmniJsonArray)subject[property]).Add(value);
                     }
                 }
                 else
                 {
                     // add new value as a set or single value
-                    JToken tmp;
+                    OmniJsonToken tmp;
                     if (propertyIsArray)
                     {
-                        tmp = new JArray();
-                        ((JArray)tmp).Add(value);
+                        tmp = new OmniJsonArray();
+                        ((OmniJsonArray)tmp).Add(value);
                     }
                     else
                     {
@@ -320,14 +320,14 @@ namespace JsonLD.Core
             }
         }
 
-        internal static void AddValue(JObject subject, string property
-            , JToken value, bool propertyIsArray)
+        internal static void AddValue(OmniJsonObject subject, string property
+            , OmniJsonToken value, bool propertyIsArray)
         {
             AddValue(subject, property, value, propertyIsArray, true);
         }
 
-        internal static void AddValue(JObject subject, string property
-            , JToken value)
+        internal static void AddValue(OmniJsonObject subject, string property
+            , OmniJsonToken value)
         {
             AddValue(subject, property, value, false, true);
         }
@@ -342,7 +342,7 @@ namespace JsonLD.Core
         /// we may need to re-implement the parser here to support the
         /// flexibility required
         /// </returns>
-        private static string PrependBase(JToken baseobj, string iri)
+        private static string PrependBase(OmniJsonToken baseobj, string iri)
         {
             // already an absolute IRI
             if (iri.IndexOf(":") != -1)
@@ -420,32 +420,32 @@ namespace JsonLD.Core
         /// <returns>the expanded language map.</returns>
         /// <exception cref="JsonLdError">JsonLdError</exception>
         /// <exception cref="JsonLD.Core.JsonLdError"></exception>
-        internal static JArray ExpandLanguageMap(JObject languageMap
+        internal static OmniJsonArray ExpandLanguageMap(OmniJsonObject languageMap
             )
         {
-            JArray rval = new JArray();
+            OmniJsonArray rval = new OmniJsonArray();
             IList<string> keys = new List<string>(languageMap.GetKeys());
             keys.SortInPlace();
             // lexicographically sort languages
             foreach (string key in keys)
             {
-                JToken val;
+                OmniJsonToken val;
                 if (!IsArray(languageMap[key]))
                 {
-                    val = new JArray();
-                    ((JArray)val).Add(languageMap[key]);
+                    val = new OmniJsonArray();
+                    ((OmniJsonArray)val).Add(languageMap[key]);
                 }
                 else
                 {
-                    val = (JArray)languageMap[key];
+                    val = (OmniJsonArray)languageMap[key];
                 }
-                foreach (JToken item in val)
+                foreach (OmniJsonToken item in val)
                 {
                     if (!IsString(item))
                     {
                         throw new JsonLdError(JsonLdError.Error.SyntaxError);
                     }
-                    JObject tmp = new JObject();
+                    OmniJsonObject tmp = new OmniJsonObject();
                     tmp["@value"] = item;
                     tmp["@language"] = key.ToLower();
                     rval.Add(tmp);
@@ -459,27 +459,27 @@ namespace JsonLD.Core
         /// <param name="v">the value to check.</param>
         /// <exception cref="JsonLdError">JsonLdError</exception>
         /// <exception cref="JsonLD.Core.JsonLdError"></exception>
-        internal static bool ValidateTypeValue(JToken v)
+        internal static bool ValidateTypeValue(OmniJsonToken v)
         {
             if (v.IsNull())
             {
                 throw new ArgumentNullException("\"@type\" value cannot be null");
             }
             // must be a string, subject reference, or empty object
-            if (v.Type == JTokenType.String || (v is JObject && (((JObject)v).ContainsKey
-                ("@id") || ((JArray)v).Count == 0)))
+            if (v.Type == OmniJsonTokenType.String || (v is OmniJsonObject && (JavaCompat.ContainsKey
+                (((OmniJsonObject)v), "@id") || ((OmniJsonArray)v).Count == 0)))
             {
                 return true;
             }
             // must be an array
             bool isValid = false;
-            if (v is JArray)
+            if (v is OmniJsonArray)
             {
                 isValid = true;
-                foreach (JToken i in (JArray)v)
+                foreach (OmniJsonToken i in (OmniJsonArray)v)
                 {
-                    if (!(i.Type == JTokenType.String || i is JObject && ((JObject)i).ContainsKey
-                        ("@id")))
+                    if (!(i.Type == OmniJsonTokenType.String || i is OmniJsonObject && JavaCompat.ContainsKey
+                        (((OmniJsonObject)i), "@id")))
                     {
                         isValid = false;
                         break;
@@ -498,7 +498,7 @@ namespace JsonLD.Core
         /// <param name="base">the base IRI.</param>
         /// <param name="iri">the absolute IRI.</param>
         /// <returns>the relative IRI if relative to base, otherwise the absolute IRI.</returns>
-        private static string RemoveBase(JToken baseobj, string iri)
+        private static string RemoveBase(OmniJsonToken baseobj, string iri)
         {
             URL @base;
             if (IsString(baseobj))
@@ -592,16 +592,16 @@ namespace JsonLD.Core
         /// <returns>the resulting output.</returns>
         /// <exception cref="JsonLdError">JsonLdError</exception>
         /// <exception cref="JsonLD.Core.JsonLdError"></exception>
-        internal static JToken RemovePreserve(Context ctx, JToken input, JsonLdOptions opts
+        internal static OmniJsonToken RemovePreserve(Context ctx, OmniJsonToken input, JsonLdOptions opts
             )
         {
             // recurse through arrays
             if (IsArray(input))
             {
-                JArray output = new JArray();
-                foreach (JToken i in (JArray)input)
+                OmniJsonArray output = new OmniJsonArray();
+                foreach (OmniJsonToken i in (OmniJsonArray)input)
                 {
-                    JToken result = RemovePreserve(ctx, i, opts);
+                    OmniJsonToken result = RemovePreserve(ctx, i, opts);
                     // drop nulls from arrays
                     if (!result.IsNull())
                     {
@@ -615,13 +615,13 @@ namespace JsonLD.Core
                 if (IsObject(input))
                 {
                     // remove @preserve
-                    if (((JObject)input).ContainsKey("@preserve"))
+                    if (JavaCompat.ContainsKey(((OmniJsonObject)input), "@preserve"))
                     {
-                        if (((JObject)input)["@preserve"].SafeCompare("@null"))
+                        if (((OmniJsonObject)input)["@preserve"].SafeCompare("@null"))
                         {
                             return null;
                         }
-                        return ((JObject)input)["@preserve"];
+                        return ((OmniJsonObject)input)["@preserve"];
                     }
                     // skip @values
                     if (IsValue(input))
@@ -631,21 +631,21 @@ namespace JsonLD.Core
                     // recurse through @lists
                     if (IsList(input))
                     {
-                        ((JObject)input)["@list"] = RemovePreserve(ctx, ((JObject)input)["@list"], opts);
+                        ((OmniJsonObject)input)["@list"] = RemovePreserve(ctx, ((OmniJsonObject)input)["@list"], opts);
                         return input;
                     }
                     // recurse through properties
                     foreach (string prop in input.GetKeys())
                     {
-                        JToken result = RemovePreserve(ctx, ((JObject)input)[prop], opts
+                        OmniJsonToken result = RemovePreserve(ctx, ((OmniJsonObject)input)[prop], opts
                             );
                         string container = ctx.GetContainer(prop);
-                        if (opts.GetCompactArrays() && IsArray(result) && ((JArray)result).Count ==
+                        if (opts.GetCompactArrays() && IsArray(result) && ((OmniJsonArray)result).Count ==
                              1 && container == null)
                         {
-                            result = ((JArray)result)[0];
+                            result = ((OmniJsonArray)result)[0];
                         }
-                        ((JObject)input)[prop] = result;
+                        ((OmniJsonObject)input)[prop] = result;
                     }
                 }
             }
@@ -718,21 +718,21 @@ namespace JsonLD.Core
         /// <param name="property">the property to check.</param>
         /// <param name="value">the value to check.</param>
         /// <returns>true if the value exists, false if not.</returns>
-        internal static bool HasValue(JObject subject, string property
-            , JToken value)
+        internal static bool HasValue(OmniJsonObject subject, string property
+            , OmniJsonToken value)
         {
             bool rval = false;
             if (HasProperty(subject, property))
             {
-                JToken val = subject[property];
+                OmniJsonToken val = subject[property];
                 bool isList = IsList(val);
-                if (isList || val is JArray)
+                if (isList || val is OmniJsonArray)
                 {
                     if (isList)
                     {
-                        val = (JObject)val["@list"];
+                        val = (OmniJsonObject)val["@list"];
                     }
-                    foreach (JToken i in (JArray)val)
+                    foreach (OmniJsonToken i in (OmniJsonArray)val)
                     {
                         if (CompareValues(value, i))
                         {
@@ -743,7 +743,7 @@ namespace JsonLD.Core
                 }
                 else
                 {
-                    if (!(value is JArray))
+                    if (!(value is OmniJsonArray))
                     {
                         rval = CompareValues(value, val);
                     }
@@ -752,14 +752,14 @@ namespace JsonLD.Core
             return rval;
         }
 
-        private static bool HasProperty(JObject subject, string property
+        private static bool HasProperty(OmniJsonObject subject, string property
             )
         {
             bool rval = false;
             if (subject.ContainsKey(property))
             {
-                JToken value = subject[property];
-                rval = (!(value is JArray) || ((JArray)value).Count > 0);
+                OmniJsonToken value = subject[property];
+                rval = (!(value is OmniJsonArray) || ((OmniJsonArray)value).Count > 0);
             }
             return rval;
         }
@@ -775,22 +775,22 @@ namespace JsonLD.Core
         /// <param name="v1">the first value.</param>
         /// <param name="v2">the second value.</param>
         /// <returns>true if v1 and v2 are considered equal, false if not.</returns>
-        internal static bool CompareValues(JToken v1, JToken v2)
+        internal static bool CompareValues(OmniJsonToken v1, OmniJsonToken v2)
         {
             if (v1.Equals(v2))
             {
                 return true;
             }
-            if (IsValue(v1) && IsValue(v2) && Obj.Equals(((JObject)v1)["@value"
-                ], ((JObject)v2)["@value"]) && Obj.Equals(((JObject)v1)["@type"], ((JObject)v2)["@type"]) && Obj.Equals
-                (((JObject)v1)["@language"], ((JObject)v2
-                )["@language"]) && Obj.Equals(((JObject)v1)["@index"], ((JObject)v2)["@index"]))
+            if (IsValue(v1) && IsValue(v2) && Obj.Equals(((OmniJsonObject)v1)["@value"
+                ], ((OmniJsonObject)v2)["@value"]) && Obj.Equals(((OmniJsonObject)v1)["@type"], ((OmniJsonObject)v2)["@type"]) && Obj.Equals
+                (((OmniJsonObject)v1)["@language"], ((OmniJsonObject)v2
+                )["@language"]) && Obj.Equals(((OmniJsonObject)v1)["@index"], ((OmniJsonObject)v2)["@index"]))
             {
                 return true;
             }
-            if ((v1 is JObject && ((JObject)v1).ContainsKey("@id")) &&
-                 (v2 is JObject && ((JObject)v2).ContainsKey("@id")) &&
-                ((JObject)v1)["@id"].Equals(((JObject)v2
+            if ((v1 is OmniJsonObject && JavaCompat.ContainsKey(((OmniJsonObject)v1), "@id")) &&
+                 (v2 is OmniJsonObject && JavaCompat.ContainsKey(((OmniJsonObject)v2), "@id")) &&
+                ((OmniJsonObject)v1)["@id"].Equals(((OmniJsonObject)v2
                 )["@id"]))
             {
                 return true;
@@ -804,20 +804,20 @@ namespace JsonLD.Core
         /// <param name="property">the property that relates the value to the subject.</param>
         /// <param name="value">the value to remove.</param>
         /// <?></?>
-        internal static void RemoveValue(JObject subject, string property
-            , JObject value)
+        internal static void RemoveValue(OmniJsonObject subject, string property
+            , OmniJsonObject value)
         {
             RemoveValue(subject, property, value, false);
         }
 
-        internal static void RemoveValue(JObject subject, string property
-            , JObject value, bool propertyIsArray)
+        internal static void RemoveValue(OmniJsonObject subject, string property
+            , OmniJsonObject value, bool propertyIsArray)
         {
             // filter out value
-            JArray values = new JArray();
-            if (subject[property] is JArray)
+            OmniJsonArray values = new OmniJsonArray();
+            if (subject[property] is OmniJsonArray)
             {
-                foreach (JToken e in ((JArray)subject[property]))
+                foreach (OmniJsonToken e in ((OmniJsonArray)subject[property]))
                 {
                     if (!e.SafeCompare(value))
                     {
@@ -853,22 +853,22 @@ namespace JsonLD.Core
         /// <remarks>Returns true if the given value is a blank node.</remarks>
         /// <param name="v">the value to check.</param>
         /// <returns>true if the value is a blank node, false if not.</returns>
-        internal static bool IsBlankNode(JToken v)
+        internal static bool IsBlankNode(OmniJsonToken v)
         {
             // Note: A value is a blank node if all of these hold true:
             // 1. It is an Object.
             // 2. If it has an @id key its value begins with '_:'.
             // 3. It has no keys OR is not a @value, @set, or @list.
-            if (v is JObject)
+            if (v is OmniJsonObject)
             {
-                if (((JObject)v).ContainsKey("@id"))
+                if (JavaCompat.ContainsKey(((OmniJsonObject)v), "@id"))
                 {
-                    return ((string)((JObject)v)["@id"]).StartsWith("_:");
+                    return ((string)((OmniJsonObject)v)["@id"]).StartsWith("_:");
                 }
                 else
                 {
-                    return ((JObject)v).Count == 0 || !(((JObject)v).ContainsKey("@value") ||
-                         ((JObject)v).ContainsKey("@set") || ((JObject)v).ContainsKey("@list"));
+                    return ((OmniJsonObject)v).Count == 0 || !(JavaCompat.ContainsKey(((OmniJsonObject)v), "@value") ||
+                         JavaCompat.ContainsKey(((OmniJsonObject)v), "@set") || JavaCompat.ContainsKey(((OmniJsonObject)v), "@list"));
                 }
             }
             return false;
@@ -885,13 +885,13 @@ namespace JsonLD.Core
         /// <param name="callback">(err, input) called once the operation completes.</param>
         /// <exception cref="JsonLdError">JsonLdError</exception>
         /// <exception cref="JsonLD.Core.JsonLdError"></exception>
-        internal static void ResolveContextUrls(JToken input)
+        internal static void ResolveContextUrls(OmniJsonToken input)
         {
-            Resolve(input, new JObject());
+            Resolve(input, new OmniJsonObject());
         }
 
         /// <exception cref="JsonLD.Core.JsonLdError"></exception>
-        private static void Resolve(JToken input, JObject cycles)
+        private static void Resolve(OmniJsonToken input, OmniJsonObject cycles)
         {
             Pattern regex = Pattern.Compile("(http|https)://(\\w+:{0,1}\\w*@)?(\\S+)(:[0-9]+)?(/|/([\\w#!:.?+=&%@!\\-/]))?"
                 );
@@ -900,7 +900,7 @@ namespace JsonLD.Core
                 throw new JsonLdError(JsonLdError.Error.UnknownError);
             }
             // for tracking the URLs to resolve
-            JObject urls = new JObject();
+            OmniJsonObject urls = new OmniJsonObject();
             // find all URLs in the given input
             if (!FindContextUrls(input, urls, false))
             {
@@ -908,7 +908,7 @@ namespace JsonLD.Core
                 FindContextUrls(input, urls, true);
             }
             // queue all unresolved URLs
-            JArray queue = new JArray();
+            OmniJsonArray queue = new OmniJsonArray();
             foreach (string url in urls.GetKeys())
             {
                 if (urls[url].SafeCompare(false))
@@ -930,15 +930,15 @@ namespace JsonLD.Core
                 {
                     throw new JsonLdError(JsonLdError.Error.UnknownError);
                 }
-                JObject _cycles = (JObject)Clone(cycles);
+                OmniJsonObject _cycles = (OmniJsonObject)Clone(cycles);
                 _cycles[url_1] = true;
                 try
                 {
-                    JObject ctx = (JObject)new DocumentLoader().LoadDocument(url_1).Document;
+                    OmniJsonObject ctx = (OmniJsonObject)new DocumentLoader().LoadDocument(url_1).Document;
                     if (!ctx.ContainsKey("@context"))
                     {
-                        ctx = new JObject();
-                        ctx["@context"] = new JObject();
+                        ctx = new OmniJsonObject();
+                        ctx["@context"] = new OmniJsonObject();
                     }
                     Resolve(ctx, _cycles);
                     urls[url_1] = ctx["@context"];
@@ -970,13 +970,13 @@ namespace JsonLD.Core
         /// <param name="replace">true to replace the URLs in the given input with the</param>
         /// <contexts>from the urls map, false not to.</contexts>
         /// <returns>true if new URLs to resolve were found, false if not.</returns>
-        private static bool FindContextUrls(JToken input, JObject urls
+        private static bool FindContextUrls(OmniJsonToken input, OmniJsonObject urls
             , bool replace)
         {
             int count = urls.Count;
-            if (input is JArray)
+            if (input is OmniJsonArray)
             {
-                foreach (JToken i in (JArray)input)
+                foreach (OmniJsonToken i in (OmniJsonArray)input)
                 {
                     FindContextUrls(i, urls, replace);
                 }
@@ -984,41 +984,41 @@ namespace JsonLD.Core
             }
             else
             {
-                if (input is JObject)
+                if (input is OmniJsonObject)
                 {
                     foreach (string key in input.GetKeys())
                     {
                         if (!"@context".Equals(key))
                         {
-                            FindContextUrls(((JObject)input)[key], urls, replace);
+                            FindContextUrls(((OmniJsonObject)input)[key], urls, replace);
                             continue;
                         }
                         // get @context
-                        JToken ctx = ((JObject)input)[key];
+                        OmniJsonToken ctx = ((OmniJsonObject)input)[key];
                         // array @context
-                        if (ctx is JArray)
+                        if (ctx is OmniJsonArray)
                         {
-                            int length = ((JArray)ctx).Count;
+                            int length = ((OmniJsonArray)ctx).Count;
                             for (int i = 0; i < length; i++)
                             {
-                                JToken _ctx = ((JArray)ctx)[i];
-                                if (_ctx.Type == JTokenType.String)
+                                OmniJsonToken _ctx = ((OmniJsonArray)ctx)[i];
+                                if (_ctx.Type == OmniJsonTokenType.String)
                                 {
                                     // replace w/@context if requested
                                     if (replace)
                                     {
                                         _ctx = urls[(string)_ctx];
-                                        if (_ctx is JArray)
+                                        if (_ctx is OmniJsonArray)
                                         {
                                             // add flattened context
-                                            ((JArray)ctx).RemoveAt(i);
-                                            JsonLD.Collections.AddAllObj(((JArray)ctx), (ICollection)_ctx);
-                                            i += ((JArray)_ctx).Count;
-                                            length += ((JArray)_ctx).Count;
+                                            ((OmniJsonArray)ctx).RemoveAt(i);
+                                            JsonLD.Collections.AddAllObj(((OmniJsonArray)ctx), (ICollection)_ctx);
+                                            i += ((OmniJsonArray)_ctx).Count;
+                                            length += ((OmniJsonArray)_ctx).Count;
                                         }
                                         else
                                         {
-                                            ((JArray)ctx)[i] = _ctx;
+                                            ((OmniJsonArray)ctx)[i] = _ctx;
                                         }
                                     }
                                     else
@@ -1035,12 +1035,12 @@ namespace JsonLD.Core
                         else
                         {
                             // string @context
-                            if (ctx.Type == JTokenType.String)
+                            if (ctx.Type == OmniJsonTokenType.String)
                             {
                                 // replace w/@context if requested
                                 if (replace)
                                 {
-                                    ((JObject)input)[key] = urls[(string)ctx];
+                                    ((OmniJsonObject)input)[key] = urls[(string)ctx];
                                 }
                                 else
                                 {
@@ -1059,7 +1059,7 @@ namespace JsonLD.Core
             return false;
         }
 
-        internal static JToken Clone(JToken value)
+        internal static OmniJsonToken Clone(OmniJsonToken value)
         {
             return value.DeepClone();
         }
@@ -1067,44 +1067,44 @@ namespace JsonLD.Core
         /// <summary>Returns true if the given value is a JSON-LD Array</summary>
         /// <param name="v">the value to check.</param>
         /// <returns></returns>
-        internal static bool IsArray(JToken v)
+        internal static bool IsArray(OmniJsonToken v)
         {
-            return (v is JArray);
+            return (v is OmniJsonArray);
         }
 
         /// <summary>Returns true if the given value is a JSON-LD List</summary>
         /// <param name="v">the value to check.</param>
         /// <returns></returns>
-        internal static bool IsList(JToken v)
+        internal static bool IsList(OmniJsonToken v)
         {
-            return (v is JObject && ((IDictionary<string, JToken>)v).ContainsKey("@list")
+            return (v is OmniJsonObject && ((IDictionary<string, OmniJsonToken>)v).ContainsKey("@list")
                 );
         }
 
         /// <summary>Returns true if the given value is a JSON-LD Object</summary>
         /// <param name="v">the value to check.</param>
         /// <returns></returns>
-        internal static bool IsObject(JToken v)
+        internal static bool IsObject(OmniJsonToken v)
         {
-            return (v is JObject);
+            return (v is OmniJsonObject);
         }
 
         /// <summary>Returns true if the given value is a JSON-LD value</summary>
         /// <param name="v">the value to check.</param>
         /// <returns></returns>
-        internal static bool IsValue(JToken v)
+        internal static bool IsValue(OmniJsonToken v)
         {
-            return (v is JObject && ((IDictionary<string, JToken>)v).ContainsKey("@value"
+            return (v is OmniJsonObject && ((IDictionary<string, OmniJsonToken>)v).ContainsKey("@value"
                 ));
         }
 
         /// <summary>Returns true if the given value is a JSON-LD string</summary>
         /// <param name="v">the value to check.</param>
         /// <returns></returns>
-        internal static bool IsString(JToken v)
+        internal static bool IsString(OmniJsonToken v)
         {
             // TODO: should this return true for arrays of strings as well?
-            return (v.Type == JTokenType.String);
+            return (v.Type == OmniJsonTokenType.String);
         }
     }
 }
